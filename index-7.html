@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Overtime Intelligence · 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#070c14;color:#e0e8f4;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0a1220}
+::-webkit-scrollbar-thumb{background:#1e3050;border-radius:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.97)}}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid #1e3050;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+.blink{animation:blink 1s infinite}
+.hidden{display:none!important}
+.page{display:none}
+.page.active{display:block}
+.nav-btn{padding:0 16px;height:56px;border:none;background:none;border-bottom:2px solid transparent;color:#2a4060;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.nav-btn.active{color:#e8edf5}
+.card{background:#080e1a;border:1px solid #131e30;border-radius:14px;padding:20px}
+.kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.kpi{background:#0a1220;border:1px solid #131e30;border-radius:12px;padding:14px 16px;flex:1;min-width:110px}
+.kpi-lbl{font-size:10px;color:#2a4060;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.kpi-val{font-size:21px;font-weight:800;color:#c8d8e8;font-family:monospace}
+.kpi-sub{font-size:11px;color:#2a4060;margin-top:2px}
+.bdg{border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700}
+table{width:100%;border-collapse:collapse}
+th{color:#2a4060;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #0d1622}
+td{padding:7px 10px;border-bottom:1px solid #060912;font-size:12px}
+tr:nth-child(even) td{background:#06090f}
+.ei{width:100%;background:#06090f;border:1px solid #0d1622;border-radius:6px;padding:6px 8px;color:#c8d8e8;font-size:13px;font-family:monospace;text-align:right}
+.ei:focus{outline:1px solid #3b82f644}
+.ei.prefilled{border-color:#3b82f633;background:#06090f}
+select.ctrl{background:#060c18;border:1px solid #131e30;border-radius:8px;padding:8px 12px;color:#c8d8e8;font-size:13px;outline:none}
+.toast{position:fixed;top:20px;right:24px;z-index:9999;border-radius:10px;padding:12px 18px;font-size:13px;font-weight:600;box-shadow:0 8px 32px #00000080;animation:fadein .2s ease;pointer-events:none}
+.sbtn{padding:7px 15px;border:none;border-right:1px solid #131e30;font-weight:700;font-size:12px}
+.clbl{font-size:10px;color:#2a4060;font-weight:700;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:5px}
+.tgrp{display:flex;border:1px solid #131e30;border-radius:8px;overflow:hidden}
+.tbtn{padding:7px 13px;border:none;font-weight:600;font-size:12px}
+.cpill{padding:6px 13px;border-radius:8px;border:1px solid #131e30;background:transparent;color:#2a4060;font-weight:700;font-size:12px}
+.hrow{background:#080e1a;border:1px solid #131e30;border-radius:12px;overflow:hidden;margin-bottom:8px}
+.hhdr{padding:11px 15px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.hbody{border-top:1px solid #0d1622;padding:12px 15px;display:none}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+/* Upload zone */
+.upload-zone{border:2px dashed #1e3050;border-radius:14px;padding:32px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#06090f;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:#3b82f6;background:#06101e}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-preview{background:#080e1a;border:1px solid #131e30;border-radius:12px;overflow:hidden;margin-top:16px}
+.tab-bar{display:flex;background:#0a1220;border-bottom:1px solid #131e30;overflow-x:auto}
+.tab-item{padding:10px 16px;font-size:12px;font-weight:700;color:#2a4060;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
+.tab-item.active{color:#e8edf5;border-bottom-color:#3b82f6}
+.mode-toggle{display:flex;gap:0;background:#0a1220;border:1px solid #131e30;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.mode-btn{padding:9px 20px;border:none;font-weight:700;font-size:12px;flex:1;transition:all .15s}
+@media(max-width:680px){.g2{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}.kpi{min-width:calc(50% - 5px)}.nav-btn{padding:0 10px;font-size:11px}}
+@media(max-width:400px){.g3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 30% 20%,#0d1a2e,#060a12 60%,#000408);position:relative">
+    <div style="position:fixed;inset:0;opacity:.04;background-image:linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(90deg,#3b82f6 1px,transparent 1px);background-size:44px 44px;pointer-events:none"></div>
+    <div style="width:min(420px,92vw);background:#0a1220;border:1px solid #1a2e48;border-radius:20px;padding:38px 34px;position:relative;z-index:1;box-shadow:0 0 80px #3b82f614,0 40px 80px #00000080">
+      <div style="text-align:center;margin-bottom:26px">
+        <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#1e3a5f,#0d1f36);border:1px solid #3b82f640;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">📊</div>
+        <div style="font-size:19px;font-weight:800;color:#e8edf5">Overtime Intelligence</div>
+        <div style="font-size:11px;color:#3b82f6;margin-top:4px;font-weight:600;letter-spacing:.1em">LIVE · PROCESS OWNER PORTAL · 2026</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div><label class="clbl">Username</label><input id="iu" type="text" placeholder="e.g. po.psc" style="width:100%;background:#060d18;border:1px solid #1a2e48;border-radius:9px;padding:10px 13px;color:#e8edf5;font-size:13px;outline:none;font-family:monospace"></div>
+        <div><label class="clbl">Password</label><input id="ip" type="password" placeholder="••••••••" style="width:100%;background:#060d18;border:1px solid #1a2e48;border-radius:9px;padding:10px 13px;color:#e8edf5;font-size:13px;outline:none"></div>
+        <div id="lerr" class="hidden" style="background:#ef444418;border:1px solid #ef444440;border-radius:7px;padding:8px 12px;font-size:12px;color:#ef4444"></div>
+        <button id="lbtn" style="margin-top:3px;padding:12px;border-radius:9px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">Sign In →</button>
+      </div>
+      <div style="margin-top:20px;border-top:1px solid #0d1e30;padding-top:15px">
+        <div style="font-size:10px;color:#1e3050;margin-bottom:7px;font-weight:700;letter-spacing:.08em">DEMO CREDENTIALS · CLICK TO FILL</div>
+        <div id="clist" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 18px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden" style="display:flex;flex-direction:column;min-height:100vh">
+  <div style="background:#060c18;border-bottom:1px solid #0d1622;padding:0 22px;position:sticky;top:0;z-index:100">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:54px;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#1e3a5f,#0d1f36);display:flex;align-items:center;justify-content:center;font-size:13px">📊</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#e8edf5">Overtime Intelligence</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:1px">
+            <div id="dbdot" style="width:5px;height:5px;border-radius:50%;background:#f59e0b" class="blink"></div>
+            <span id="dblbl" style="font-size:9px;color:#4a3010;font-weight:700;letter-spacing:.1em">CONNECTING…</span>
+            <span id="nspin" class="spinner hidden"></span>
+          </div>
+        </div>
+      </div>
+      <div id="ntabs" style="display:flex;overflow-x:auto"></div>
+      <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+        <button id="rbtn" title="Refresh" style="width:27px;height:27px;border-radius:6px;border:1px solid #131e30;background:none;color:#2a4060;font-size:13px;display:flex;align-items:center;justify-content:center">↻</button>
+        <div id="uav" style="width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0"></div>
+        <button id="obtn" style="padding:4px 9px;background:none;border:1px solid #0d1622;border-radius:6px;color:#2a4060;font-size:11px;font-weight:600">Out</button>
+      </div>
+    </div>
+  </div>
+  <div id="sbanner" style="background:#06090f;border-bottom:1px solid #0d1622;padding:5px 22px;display:flex;align-items:center;gap:12px">
+    <div style="display:flex;align-items:center;gap:5px"><div id="bdot" style="width:5px;height:5px;border-radius:50%;background:#f59e0b"></div><span id="blbl" style="font-size:10px;color:#3a2a10;font-weight:700;letter-spacing:.08em">SYNCING</span></div>
+    <span id="btxt" style="font-size:11px;color:#1e3050">Connecting…</span>
+  </div>
+  <div style="padding:20px 22px;max-width:1320px;margin:0 auto;width:100%;flex:1">
+
+    <!-- DASHBOARD -->
+    <div id="pg-dashboard" class="page active">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;gap:0;background:#0a1220;border:1px solid #131e30;border-radius:10px;overflow:hidden">
+          <button class="sbtn" data-sv="overview">📊 Overview</button>
+          <button class="sbtn" data-sv="departments">🏢 Depts</button>
+          <button class="sbtn" data-sv="compare">🔀 Compare</button>
+        </div>
+        <div id="dcpills" style="display:flex;gap:7px;align-items:center"><span id="synclbl" style="font-size:10px;color:#1e3050"></span></div>
+      </div>
+      <div id="kpis" class="kpi-row"></div>
+      <div id="dcontent"></div>
+    </div>
+
+    <!-- ENTRY -->
+    <div id="pg-entry" class="page">
+      <!-- Mode toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-manual" onclick="setMode('manual')">✏ Manual Entry</button>
+        <button class="mode-btn" id="mode-upload" onclick="setMode('upload')">📤 Upload Excel</button>
+      </div>
+
+      <!-- MANUAL MODE -->
+      <div id="manual-mode">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end">
+          <div id="ecobtns"></div>
+          <div><label class="clbl">Cut-off Period</label><select id="eper" class="ctrl"></select></div>
+          <div><label class="clbl">Level</label><div class="tgrp"><button class="tbtn" id="tdept" data-tab="departments">Departments</button><button class="tbtn" id="tcc" data-tab="costcenters">Cost Centers</button></div></div>
+          <div style="margin-left:auto;display:flex;gap:9px;align-items:flex-end">
+            <div id="esaved" style="font-size:11px;color:#1a5035;background:#0a1e16;border:1px solid #1a3828;border-radius:8px;padding:7px 11px;display:none"></div>
+            <button id="svbtn" style="padding:8px 18px;border-radius:8px;border:none;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px">💾 Save to Database</button>
+          </div>
+        </div>
+        <div id="estats" class="kpi-row" style="margin-bottom:12px"></div>
+        <div style="background:#080e1a;border:1px solid #131e30;border-radius:14px;overflow:hidden">
+          <div id="ethdr" style="padding:10px 15px;background:#0a1220;border-bottom:1px solid #131e30;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
+          <div style="overflow-x:auto"><table><thead id="ethead"></thead><tbody id="etbody"></tbody></table></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#1e3050">💡 Saves to Supabase · All users see updates within ~8 seconds</div>
+      </div>
+
+      <!-- UPLOAD MODE -->
+      <div id="upload-mode" class="hidden">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+          <div id="ucobtns"></div>
+          <div><label class="clbl">Cut-off Period (for this upload)</label><select id="uper" class="ctrl"></select></div>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="upload-zone" id="dropzone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])">
+          <div style="font-size:32px;margin-bottom:12px">📂</div>
+          <div style="font-size:15px;font-weight:700;color:#c8d8e8;margin-bottom:6px">Drop your Excel file here</div>
+          <div style="font-size:12px;color:#2a4060;margin-bottom:12px">or click to browse · .xlsx, .xls, .csv supported</div>
+          <div style="display:inline-flex;align-items:center;gap:8px;background:#0a1220;border:1px solid #131e30;border-radius:8px;padding:8px 16px;font-size:12px;color:#4b6080">
+            <span>📋</span> Expected columns: <b style="color:#8aa0b8">Department/Cost Center · Regular Hrs · Overtime Hrs</b>
+          </div>
+        </div>
+
+        <!-- Template download -->
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button onclick="dlTemplate('departments')" style="padding:8px 16px;border-radius:8px;border:1px solid #1e3050;background:#0a1220;color:#4b6080;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">⬇ Download Dept Template</button>
+          <button onclick="dlTemplate('costcenters')" style="padding:8px 16px;border-radius:8px;border:1px solid #1e3050;background:#0a1220;color:#4b6080;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">⬇ Download Cost Center Template</button>
+        </div>
+
+        <!-- Preview -->
+        <div id="upload-preview" class="hidden" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#e8edf5" id="preview-title">Preview</div>
+              <div style="font-size:11px;color:#2a4060;margin-top:2px" id="preview-sub"></div>
+            </div>
+            <div style="display:flex;gap:9px">
+              <button onclick="clearUpload()" style="padding:7px 14px;border-radius:7px;border:1px solid #1e3050;background:transparent;color:#4b6080;font-size:12px;font-weight:600">✕ Clear</button>
+              <button id="upload-save-btn" onclick="saveUpload()" style="padding:8px 18px;border-radius:8px;border:none;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px">💾 Save to Database</button>
+            </div>
+          </div>
+          <!-- Stats -->
+          <div id="upload-stats" class="kpi-row" style="margin-bottom:12px"></div>
+          <!-- Tabs for sheets -->
+          <div id="sheet-tabs" class="tab-bar"></div>
+          <div class="upload-preview" style="border-radius:0 0 12px 12px">
+            <div style="overflow-x:auto"><table><thead id="prev-head"></thead><tbody id="prev-body"></tbody></table></div>
+          </div>
+        </div>
+
+        <!-- Error panel -->
+        <div id="upload-errors" class="hidden" style="margin-top:12px;background:#2a0d0d;border:1px solid #ef444440;border-radius:12px;padding:16px">
+          <div style="font-size:13px;font-weight:700;color:#ef4444;margin-bottom:8px">⚠ Issues Found</div>
+          <div id="error-list" style="font-size:12px;color:#8a3030;line-height:1.8"></div>
+        </div>
+
+        <div style="margin-top:10px;font-size:11px;color:#1e3050">
+          💡 Upload auto-detects Department or Cost Center columns · Unrecognized rows are skipped · Download the template for the exact expected format
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="pg-history" class="page">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div><div style="font-size:16px;font-weight:800;color:#e8edf5">Submission History</div><div id="hcnt" style="font-size:12px;color:#2a4060;margin-top:2px"></div></div>
+        <div id="hfilt" style="display:flex;gap:7px"></div>
+      </div>
+      <div id="hlist"></div>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="pg-admin" class="page">
+      <div style="font-size:16px;font-weight:800;color:#e8edf5;margin-bottom:14px">Admin Overview — Live Database</div>
+      <div id="acards" class="g3" style="margin-bottom:18px"></div>
+      <div class="card"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:12px">Coverage Matrix</div><div style="overflow-x:auto"><table id="ctbl"></table></div></div>
+    </div>
+
+  </div>
+</div>
+<div id="tc"></div>
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const SURL="https://bhmgchimftgtqniswvuf.supabase.co";
+const SKEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJobWdjaGltZnRndHFuaXN3dnVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4ODQyMjcsImV4cCI6MjA5NDQ2MDIyN30.VNYw1JR1d0D85A8YJNm_PVqTD_ya5WzK2iLNQj0DHGs";
+const SH={"Content-Type":"application/json","apikey":SKEY,"Authorization":"Bearer "+SKEY};
+async function sbF(p,o={}){const r=await fetch(SURL+"/rest/v1"+p,{...o,headers:{...SH,...(o.headers||{})}});if(!r.ok){const e=await r.text();throw new Error(e);}return r.status===204?null:r.json();}
+const DB={getAll:()=>sbF("/ot_submissions?select=*&order=submitted_at.desc"),upsert:(row)=>sbF("/ot_submissions?on_conflict=key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify(row)}),remove:(k)=>sbF("/ot_submissions?key=eq."+encodeURIComponent(k),{method:"DELETE"})};
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const PDS=["Dec 8 - Jan 4","Jan 5 - Jan 18","Jan 19 - Feb 2","Feb 3 - Feb 17","Feb 18 - Mar 2","Mar 3 - Mar 17","Mar 18 - Mar 26","Mar 27 - Apr 19"];
+const SHP=["Dec 8","Jan 5","Jan 19","Feb 3","Feb 18","Mar 3","Mar 18","Mar 27"];
+const CLC={ABC:"#3b82f6",PSC:"#8b5cf6",CSI:"#f59e0b",ALL:"#10b981"};
+const CDM={ABC:"#1a2640",PSC:"#211a40",CSI:"#2e2409",ALL:"#0d2a1e"};
+const DPL=["#3b82f6","#8b5cf6","#f59e0b","#10b981","#ef4444","#06b6d4","#f97316","#84cc16","#e879f9","#64748b","#fbbf24","#a3e635","#f43f5e","#22d3ee"];
+const DEPTS={ABC:["ABC","FAD"],PSC:["AMD","ARKI","FAD","HRD","ITD","OMD-ED","OMD-FW","OMD-MD","OMD-OPS","PEG","SCM","SID","SKILLS COOP","SMD"],CSI:["ADMIN","AG","P&L","PRECAST","QC","R&M","S&M"]};
+const CCS={ABC:["ABC-ADMIN","ABC-BLOCK","ABC-EAM","ABC-PROD","ABC-QA/C","ABC-SAM","ABC-WAL","FAD"],PSC:["AMD-AM","ARCHITECTURE","BUNKHOUSE","CIG-OD","CIRCA","E.D-REPAIR","E.D.-LOGISTI","ED COMM","ED RENTALS","ELECTRO-MECH","ENGINEERING","FAD-CNC","FAD-FPA","FAD-GA","FAD-PR","FAD-TD","HRD-EE","HRD-LR","HRD-REC","ITD-AMS","ITD-INFRA","ITD-SA","OMD-OPS","PEG","SCM","SID","SKILLS COOP","SMD"],CSI:["ADM","OPPAGGR","PLD","CSI-B","PLD-NP","PLD-SP","OPPRE","QC","RMD","RMDS","SLMKTG"]};
+const USERS={"po.abc":{password:"abc2026",company:"ABC",name:"ABC Process Owner"},"po.psc":{password:"psc2026",company:"PSC",name:"PSC Process Owner"},"po.csi":{password:"csi2026",company:"CSI",name:"CSI Process Owner"},"admin":{password:"admin2026",company:"ALL",name:"Administrator"}};
+
+const SEED={ABC:{departments:{ABC:{"Dec 8 - Jan 4":{reg:2273.77,ot:73.13},"Jan 5 - Jan 18":{reg:1593.62,ot:205},"Jan 19 - Feb 2":{reg:1787.97,ot:121.13},"Feb 3 - Feb 17":{reg:1585.25,ot:123.52},"Feb 18 - Mar 2":{reg:1423.68,ot:164.04},"Mar 3 - Mar 17":{reg:1671.54,ot:143.15},"Mar 18 - Mar 26":{reg:861.08,ot:167.08},"Mar 27 - Apr 19":{reg:1852.41,ot:116.05}},FAD:{"Dec 8 - Jan 4":{reg:365.52,ot:0},"Jan 5 - Jan 18":{reg:257.39,ot:24.59},"Jan 19 - Feb 2":{reg:285.47,ot:23.91},"Feb 3 - Feb 17":{reg:259.03,ot:24.65},"Feb 18 - Mar 2":{reg:138.1,ot:13.72},"Mar 3 - Mar 17":{reg:190.33,ot:15.08},"Mar 18 - Mar 26":{reg:104.13,ot:11.65},"Mar 27 - Apr 19":{reg:226.06,ot:20.31}}},costcenters:{"ABC-ADMIN":{"Dec 8 - Jan 4":{reg:139.5,ot:0},"Jan 5 - Jan 18":{reg:96,ot:0},"Jan 19 - Feb 2":{reg:104,ot:0},"Feb 3 - Feb 17":{reg:96,ot:0},"Feb 18 - Mar 2":{reg:87.25,ot:0},"Mar 3 - Mar 17":{reg:104.75,ot:0},"Mar 18 - Mar 26":{reg:56.75,ot:0},"Mar 27 - Apr 19":{reg:121.25,ot:0}},"ABC-BLOCK":{"Dec 8 - Jan 4":{reg:730.1,ot:15.29},"Jan 5 - Jan 18":{reg:619.88,ot:93.72},"Jan 19 - Feb 2":{reg:701.76,ot:71.74},"Feb 3 - Feb 17":{reg:532.3,ot:105.2},"Feb 18 - Mar 2":{reg:557.72,ot:54.82},"Mar 3 - Mar 17":{reg:669.64,ot:82.69},"Mar 18 - Mar 26":{reg:325.59,ot:78.33},"Mar 27 - Apr 19":{reg:706.41,ot:66.58}},"ABC-EAM":{"Dec 8 - Jan 4":{reg:250.98,ot:7.43},"Jan 5 - Jan 18":{reg:1036.55,ot:15.11},"Jan 19 - Feb 2":{reg:188.45,ot:22.95},"Feb 3 - Feb 17":{reg:173.15,ot:20.4},"Feb 18 - Mar 2":{reg:155.02,ot:18.57},"Mar 3 - Mar 17":{reg:192.01,ot:22.99},"Mar 18 - Mar 26":{reg:105.27,ot:20.7},"Mar 27 - Apr 19":{reg:206.73,ot:23.03}},"ABC-QA/C":{"Dec 8 - Jan 4":{reg:108.25,ot:39.78},"Jan 5 - Jan 18":{reg:94.05,ot:26.95},"Jan 19 - Feb 2":{reg:103.94,ot:3.85},"Feb 3 - Feb 17":{reg:96,ot:5.04},"Feb 18 - Mar 2":{reg:87.12,ot:42.2},"Mar 3 - Mar 17":{reg:104.07,ot:7.88},"Mar 18 - Mar 26":{reg:56.71,ot:33.93},"Mar 27 - Apr 19":{reg:121.88,ot:4.6}},"ABC-SAM":{"Dec 8 - Jan 4":{reg:643.92,ot:3.58},"Jan 5 - Jan 18":{reg:444.91,ot:15.16},"Jan 19 - Feb 2":{reg:492.66,ot:6.17},"Feb 3 - Feb 17":{reg:435.24,ot:0},"Feb 18 - Mar 2":{reg:375.23,ot:48.06},"Mar 3 - Mar 17":{reg:441.83,ot:22.43},"Mar 18 - Mar 26":{reg:244.5,ot:22.48},"Mar 27 - Apr 19":{reg:533.4,ot:17.79}},"ABC-WAL":{"Dec 8 - Jan 4":{reg:135.52,ot:0},"Jan 5 - Jan 18":{reg:86.73,ot:39.08},"Jan 19 - Feb 2":{reg:98,ot:12.25},"Feb 3 - Feb 17":{reg:113.5,ot:0},"Feb 18 - Mar 2":{reg:74.12,ot:0.38},"Mar 3 - Mar 17":{reg:54.5,ot:7.16},"Mar 18 - Mar 26":{reg:56.75,ot:10},"Mar 27 - Apr 19":{reg:120.25,ot:4.06}}}},PSC:{departments:{AMD:{"Dec 8 - Jan 4":{reg:487.35,ot:3.48},"Jan 5 - Jan 18":{reg:349.31,ot:0},"Jan 19 - Feb 2":{reg:384.65,ot:0},"Feb 3 - Feb 17":{reg:349.75,ot:0},"Feb 18 - Mar 2":{reg:279.45,ot:0},"Mar 3 - Mar 17":{reg:382.07,ot:0},"Mar 18 - Mar 26":{reg:210,ot:0},"Mar 27 - Apr 19":{reg:443.72,ot:0}},ARKI:{"Dec 8 - Jan 4":{reg:701.28,ot:0},"Jan 5 - Jan 18":{reg:499.73,ot:0},"Jan 19 - Feb 2":{reg:560.2,ot:0},"Feb 3 - Feb 17":{reg:509.68,ot:0},"Feb 18 - Mar 2":{reg:405.62,ot:0},"Mar 3 - Mar 17":{reg:568.43,ot:0},"Mar 18 - Mar 26":{reg:302.88,ot:0},"Mar 27 - Apr 19":{reg:674.46,ot:0}},FAD:{"Dec 8 - Jan 4":{reg:2202.45,ot:37.11},"Jan 5 - Jan 18":{reg:1622.25,ot:8.94},"Jan 19 - Feb 2":{reg:1779.41,ot:42.9},"Feb 3 - Feb 17":{reg:1614.06,ot:21.49},"Feb 18 - Mar 2":{reg:1307.76,ot:16.48},"Mar 3 - Mar 17":{reg:1784.92,ot:6.26},"Mar 18 - Mar 26":{reg:974.92,ot:0},"Mar 27 - Apr 19":{reg:2094.41,ot:0}},HRD:{"Dec 8 - Jan 4":{reg:2086.5,ot:33.64},"Jan 5 - Jan 18":{reg:1456.75,ot:32.38},"Jan 19 - Feb 2":{reg:1717.34,ot:11.75},"Feb 3 - Feb 17":{reg:1576.67,ot:9.7},"Feb 18 - Mar 2":{reg:1271.58,ot:22.48},"Mar 3 - Mar 17":{reg:1618.91,ot:1},"Mar 18 - Mar 26":{reg:887.38,ot:22.62},"Mar 27 - Apr 19":{reg:1914.04,ot:22.18}},ITD:{"Dec 8 - Jan 4":{reg:2466.31,ot:325.15},"Jan 5 - Jan 18":{reg:1808.39,ot:130.79},"Jan 19 - Feb 2":{reg:1973.56,ot:131.95},"Feb 3 - Feb 17":{reg:1815.95,ot:172.9},"Feb 18 - Mar 2":{reg:1454.41,ot:170.95},"Mar 3 - Mar 17":{reg:2011.14,ot:211.24},"Mar 18 - Mar 26":{reg:1101.37,ot:186.72},"Mar 27 - Apr 19":{reg:2622.46,ot:240.04}},"OMD-ED":{"Dec 8 - Jan 4":{reg:1660.88,ot:443.51},"Jan 5 - Jan 18":{reg:1211.42,ot:89.33},"Jan 19 - Feb 2":{reg:1320.43,ot:150.61},"Feb 3 - Feb 17":{reg:1206.82,ot:84.08},"Feb 18 - Mar 2":{reg:1000.84,ot:213.81},"Mar 3 - Mar 17":{reg:1324.76,ot:183.4},"Mar 18 - Mar 26":{reg:715.11,ot:214.52},"Mar 27 - Apr 19":{reg:1550.67,ot:142.79}},"OMD-FW":{"Dec 8 - Jan 4":{reg:379.23,ot:73.14},"Jan 5 - Jan 18":{reg:277.81,ot:68.86},"Jan 19 - Feb 2":{reg:311.14,ot:65.01},"Feb 3 - Feb 17":{reg:283.74,ot:80.04},"Feb 18 - Mar 2":{reg:162.2,ot:43.74},"Mar 3 - Mar 17":{reg:207.08,ot:77.28},"Mar 18 - Mar 26":{reg:112.13,ot:72.32},"Mar 27 - Apr 19":{reg:242.16,ot:115.35}},"OMD-MD":{"Dec 8 - Jan 4":{reg:784.29,ot:223.9},"Jan 5 - Jan 18":{reg:563.74,ot:64.32},"Jan 19 - Feb 2":{reg:613.22,ot:128.25},"Feb 3 - Feb 17":{reg:559.49,ot:113.25},"Feb 18 - Mar 2":{reg:477.97,ot:152.5},"Mar 3 - Mar 17":{reg:618.7,ot:149.08},"Mar 18 - Mar 26":{reg:322.96,ot:129.02},"Mar 27 - Apr 19":{reg:722.08,ot:165.36}},"OMD-OPS":{"Dec 8 - Jan 4":{reg:10335.25,ot:2055.46},"Jan 5 - Jan 18":{reg:7289.62,ot:721.61},"Jan 19 - Feb 2":{reg:8023.59,ot:945.14},"Feb 3 - Feb 17":{reg:7221.11,ot:1048.62},"Feb 18 - Mar 2":{reg:5682.19,ot:1123.6},"Mar 3 - Mar 17":{reg:7135.05,ot:1403.5},"Mar 18 - Mar 26":{reg:3917.14,ot:1070.93},"Mar 27 - Apr 19":{reg:8408,ot:1351.52}},PEG:{"Dec 8 - Jan 4":{reg:1202.53,ot:158.62},"Jan 5 - Jan 18":{reg:930.96,ot:61.06},"Jan 19 - Feb 2":{reg:1063.28,ot:75.72},"Feb 3 - Feb 17":{reg:990.97,ot:131.06},"Feb 18 - Mar 2":{reg:799.57,ot:131.2},"Mar 3 - Mar 17":{reg:1035.65,ot:209.07},"Mar 18 - Mar 26":{reg:563.92,ot:186.25},"Mar 27 - Apr 19":{reg:1199.19,ot:205.48}},SCM:{"Dec 8 - Jan 4":{reg:2379.27,ot:25.72},"Jan 5 - Jan 18":{reg:1724.42,ot:16.1},"Jan 19 - Feb 2":{reg:1936.09,ot:36.98},"Feb 3 - Feb 17":{reg:1757.99,ot:22.28},"Feb 18 - Mar 2":{reg:1440.79,ot:27.77},"Mar 3 - Mar 17":{reg:1838.21,ot:19.02},"Mar 18 - Mar 26":{reg:1006.56,ot:36.8},"Mar 27 - Apr 19":{reg:2175.64,ot:37.45}},SID:{"Dec 8 - Jan 4":{reg:575.38,ot:0},"Jan 5 - Jan 18":{reg:424.28,ot:0},"Jan 19 - Feb 2":{reg:474.48,ot:0},"Feb 3 - Feb 17":{reg:432.72,ot:0},"Feb 18 - Mar 2":{reg:342.95,ot:0},"Mar 3 - Mar 17":{reg:465.01,ot:0},"Mar 18 - Mar 26":{reg:253.75,ot:0},"Mar 27 - Apr 19":{reg:545.28,ot:0}},"SKILLS COOP":{"Dec 8 - Jan 4":{reg:282.27,ot:9.39},"Jan 5 - Jan 18":{reg:169.79,ot:18.32},"Jan 19 - Feb 2":{reg:230.7,ot:20.05},"Feb 3 - Feb 17":{reg:217.7,ot:15.08},"Feb 18 - Mar 2":{reg:174.58,ot:16.03},"Mar 3 - Mar 17":{reg:199.78,ot:27.39},"Mar 18 - Mar 26":{reg:118.65,ot:20.55},"Mar 27 - Apr 19":{reg:283.74,ot:23.16}},SMD:{"Dec 8 - Jan 4":{reg:2577.8,ot:858.25},"Jan 5 - Jan 18":{reg:1836.27,ot:241.54},"Jan 19 - Feb 2":{reg:2092.69,ot:312.72},"Feb 3 - Feb 17":{reg:1955.12,ot:356.73},"Feb 18 - Mar 2":{reg:1654.18,ot:500.46},"Mar 3 - Mar 17":{reg:2117.16,ot:341.56},"Mar 18 - Mar 26":{reg:1187.87,ot:286.62},"Mar 27 - Apr 19":{reg:2746.16,ot:318.39}}},costcenters:{}},CSI:{departments:{ADMIN:{"Dec 8 - Jan 4":{reg:522.85,ot:120.18},"Jan 5 - Jan 18":{reg:428.46,ot:61.17},"Jan 19 - Feb 2":{reg:468.15,ot:45.78},"Feb 3 - Feb 17":{reg:429.12,ot:38.85},"Feb 18 - Mar 2":{reg:387.78,ot:36.48},"Mar 3 - Mar 17":{reg:462.26,ot:28.25},"Mar 18 - Mar 26":{reg:260.8,ot:29.25},"Mar 27 - Apr 19":{reg:562.64,ot:59.93}},AG:{"Dec 8 - Jan 4":{reg:102,ot:41.75},"Jan 5 - Jan 18":{reg:88.25,ot:11.08},"Jan 19 - Feb 2":{reg:98.25,ot:22.66},"Feb 3 - Feb 17":{reg:89.75,ot:14.25},"Feb 18 - Mar 2":{reg:81.58,ot:21.17},"Mar 3 - Mar 17":{reg:98.08,ot:26.83},"Mar 18 - Mar 26":{reg:53.25,ot:24.17},"Mar 27 - Apr 19":{reg:118.5,ot:48.58}},"P&L":{"Dec 8 - Jan 4":{reg:1675.9,ot:1416.68},"Jan 5 - Jan 18":{reg:1303.7,ot:754.53},"Jan 19 - Feb 2":{reg:1417.07,ot:952.08},"Feb 3 - Feb 17":{reg:1295.76,ot:1014.82},"Feb 18 - Mar 2":{reg:1185.68,ot:1085.64},"Mar 3 - Mar 17":{reg:1475.87,ot:1166.87},"Mar 18 - Mar 26":{reg:816.61,ot:846.48},"Mar 27 - Apr 19":{reg:1713.65,ot:1632.09}},PRECAST:{"Dec 8 - Jan 4":{reg:451.21,ot:514.01},"Jan 5 - Jan 18":{reg:439.85,ot:379.73},"Jan 19 - Feb 2":{reg:476.77,ot:248.96},"Feb 3 - Feb 17":{reg:438.54,ot:342.64},"Feb 18 - Mar 2":{reg:401.87,ot:298.52},"Mar 3 - Mar 17":{reg:471.55,ot:561.65},"Mar 18 - Mar 26":{reg:262.73,ot:321.67},"Mar 27 - Apr 19":{reg:587.16,ot:618.64}},QC:{"Dec 8 - Jan 4":{reg:626.15,ot:249.49},"Jan 5 - Jan 18":{reg:537.57,ot:63.96},"Jan 19 - Feb 2":{reg:585.12,ot:80.21},"Feb 3 - Feb 17":{reg:535.77,ot:118.55},"Feb 18 - Mar 2":{reg:488.56,ot:105.51},"Mar 3 - Mar 17":{reg:583.84,ot:116.75},"Mar 18 - Mar 26":{reg:316.65,ot:133.83},"Mar 27 - Apr 19":{reg:702.61,ot:189.83}},"R&M":{"Dec 8 - Jan 4":{reg:656,ot:261.24},"Jan 5 - Jan 18":{reg:488,ot:129.67},"Jan 19 - Feb 2":{reg:489.49,ot:164.44},"Feb 3 - Feb 17":{reg:439.06,ot:110.4},"Feb 18 - Mar 2":{reg:407.85,ot:160.17},"Mar 3 - Mar 17":{reg:488.65,ot:145.06},"Mar 18 - Mar 26":{reg:266.01,ot:120.53},"Mar 27 - Apr 19":{reg:584.27,ot:234.87}},"S&M":{"Dec 8 - Jan 4":{reg:828.42,ot:0},"Jan 5 - Jan 18":{reg:513.03,ot:0},"Jan 19 - Feb 2":{reg:554.77,ot:0},"Feb 3 - Feb 17":{reg:475.56,ot:0},"Feb 18 - Mar 2":{reg:437.29,ot:0},"Mar 3 - Mar 17":{reg:531.57,ot:0},"Mar 18 - Mar 26":{reg:281.12,ot:0},"Mar 27 - Apr 19":{reg:552.67,ot:5.84}}},costcenters:{}}};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const cp=(r,o)=>{const rv=parseFloat(r)||0,ov=parseFloat(o)||0;return(rv+ov)>0?ov/(rv+ov):0;};
+const fp=n=>(n*100).toFixed(1)+"%";
+const fn=n=>(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
+const ta=iso=>{const s=Math.floor((Date.now()-new Date(iso))/1000);if(s<60)return s+"s ago";if(s<3600)return Math.floor(s/60)+"m ago";if(s<86400)return Math.floor(s/3600)+"h ago";return new Date(iso).toLocaleDateString();};
+const pc=p=>p>0.3?"#ef4444":p>0.1?"#f59e0b":p>0?"#10b981":"#1e3050";
+const G=id=>document.getElementById(id);
+
+function toast(msg,type="success"){const c=type==="success"?"#10b981":type==="info"?"#3b82f6":"#ef4444";const bg=type==="success"?"#0d2a1e":type==="info"?"#0d1e2a":"#2a0d0d";const d=document.createElement("div");d.className="toast";d.style.cssText=`background:${bg};border:1px solid ${c};color:${c}`;d.textContent=(type==="success"?"✓ ":type==="info"?"↻ ":"✗ ")+msg;G("tc").appendChild(d);setTimeout(()=>d.remove(),3500);}
+
+function r2m(rows){const m={};rows.forEach(r=>{m[r.key]={...r,data:typeof r.data==="string"?JSON.parse(r.data):r.data};});return m;}
+function bld(subs){const live=JSON.parse(JSON.stringify(SEED));Object.values(subs).forEach(s=>{const{company,period,type,data}=s;if(!live[company])return;const b=type==="departments"?live[company].departments:live[company].costcenters;Object.entries(data||{}).forEach(([n,r])=>{const reg=parseFloat(r.reg)||0,ot=parseFloat(r.ot)||0;if(!reg&&!ot)return;if(!b[n])b[n]={};b[n][period]={reg,ot};});});return live;}
+function gct(live,co){const d=live[co]?.departments||{};return PDS.map((p,i)=>{let reg=0,ot=0;Object.values(d).forEach(x=>{reg+=x[p]?.reg||0;ot+=x[p]?.ot||0;});return{period:SHP[i],fullPeriod:p,reg,ot,pct:cp(reg,ot)};});}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let S={user:null,subs:{},live:JSON.parse(JSON.stringify(SEED)),page:"dashboard",dco:"PSC",dsv:"overview",eco:"PSC",eper:PDS[0],etab:"departments",erows:{},hfil:"ALL",lastSync:null,poll:null,charts:{},
+  uploadData:null,uploadParsed:null,uploadCo:"PSC",uploadPer:PDS[0],uploadTab:"departments",entryMode:"manual"};
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+Chart.defaults.color="#2a4060";Chart.defaults.borderColor="#0d1622";
+function dc(id){if(S.charts[id]){S.charts[id].destroy();delete S.charts[id];}}
+function mkLine(id,labels,datasets,yfmt){dc(id);const ctx=G(id);if(!ctx)return;S.charts[id]=new Chart(ctx,{type:"line",data:{labels,datasets:datasets.map(d=>({...d,tension:0.3,pointRadius:4,pointHoverRadius:6}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#4b6080",font:{size:11}}},tooltip:{backgroundColor:"#0a1220",borderColor:"#1e3050",borderWidth:1,titleColor:"#4b6080",bodyColor:"#c8d8e8"}},scales:{x:{ticks:{color:"#2a4060",font:{size:10}},grid:{color:"#0d1622"}},y:{ticks:{color:"#2a4060",font:{size:10},callback:yfmt},grid:{color:"#0d1622"}}}}});}
+function mkBar(id,labels,datasets){dc(id);const ctx=G(id);if(!ctx)return;S.charts[id]=new Chart(ctx,{type:"bar",data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#4b6080",font:{size:11}}},tooltip:{backgroundColor:"#0a1220",borderColor:"#1e3050",borderWidth:1,titleColor:"#4b6080",bodyColor:"#c8d8e8"}},scales:{x:{stacked:true,ticks:{color:"#2a4060",font:{size:10}},grid:{color:"#0d1622"}},y:{stacked:true,ticks:{color:"#2a4060",font:{size:10}},grid:{color:"#0d1622"}}}}});}
+
+// ── DB STATUS ─────────────────────────────────────────────────────────────────
+function setDB(st){const dot=G("dbdot"),lbl=G("dblbl"),bd=G("bdot"),bl=G("blbl"),bt=G("btxt");if(st==="ok"){dot.style.background="#10b981";dot.style.boxShadow="0 0 4px #10b981";dot.classList.remove("blink");lbl.textContent="LIVE · SUPABASE";lbl.style.color="#1a5035";bd.style.background="#10b981";bl.textContent="LIVE";bl.style.color="#1a4030";const sc=Object.keys(S.subs).length;bt.textContent=sc+" submission"+(sc!==1?"s":"")+" in database · Auto-refresh 8s"+(S.lastSync?" · "+ta(S.lastSync):"");}else if(st==="error"){dot.style.background="#ef4444";dot.style.boxShadow="0 0 4px #ef4444";dot.classList.remove("blink");lbl.textContent="DB ERROR";lbl.style.color="#5a2020";bd.style.background="#ef4444";}else{dot.style.background="#f59e0b";dot.classList.add("blink");lbl.textContent="CONNECTING…";}}
+
+async function fetch2(silent){if(!silent)G("nspin").classList.remove("hidden");try{const rows=await DB.getAll();S.subs=r2m(rows);S.live=bld(S.subs);S.lastSync=new Date().toISOString();setDB("ok");if(S.page==="dashboard")rdash();if(S.page==="history")rhist();if(S.page==="admin")radmin();ubadge();}catch(e){setDB("error");if(!silent)toast("DB error: "+e.message,"error");}finally{if(!silent)G("nspin").classList.add("hidden");}}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+Object.entries(USERS).forEach(([u,v])=>{const d=document.createElement("div");d.style.cssText="display:flex;justify-content:space-between;font-size:11px;cursor:pointer;padding:3px 0";d.innerHTML=`<span style="font-family:monospace;color:#2a4060">${u}</span><span style="color:${CLC[v.company]};font-weight:700">${v.company}</span>`;d.onclick=()=>{G("iu").value=u;G("ip").value=v.password;};G("clist").appendChild(d);});
+function dologin(){const u=G("iu").value.trim().toLowerCase(),p=G("ip").value,usr=USERS[u];if(usr&&usr.password===p){S.user={username:u,...usr};G("login-screen").classList.add("hidden");G("app").classList.remove("hidden");initApp();}else{G("lerr").textContent="Invalid username or password.";G("lerr").classList.remove("hidden");}}
+G("lbtn").onclick=dologin;G("ip").onkeydown=e=>e.key==="Enter"&&dologin();G("iu").onkeydown=e=>e.key==="Enter"&&dologin();
+
+// ── APP INIT ──────────────────────────────────────────────────────────────────
+function initApp(){
+  const u=S.user,clr=CLC[u.company];
+  G("uav").textContent=u.company==="ALL"?"A":u.company[0];
+  G("uav").style.cssText+=`;background:${CDM[u.company]};border:1px solid ${clr}44;color:${clr}`;
+  const tabs=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"entry",icon:"✏",label:"Enter Data"},{id:"history",icon:"📋",label:"History"}];
+  if(u.company==="ALL")tabs.push({id:"admin",icon:"⚙",label:"Admin"});
+  const nav=G("ntabs");
+  tabs.forEach(t=>{const b=document.createElement("button");b.className="nav-btn"+(S.page===t.id?" active":"");b.dataset.page=t.id;b.innerHTML=t.icon+" "+t.label;if(t.id===S.page)b.style.borderBottomColor=clr;b.onclick=()=>goPg(t.id);nav.appendChild(b);});
+  const vcos=u.company==="ALL"?["ABC","PSC","CSI"]:[u.company];
+  S.dco=vcos[0];S.eco=vcos[0];S.uploadCo=vcos[0];
+  if(u.company!=="ALL"){S.dco=u.company;S.eco=u.company;S.uploadCo=u.company;}
+  const pw=G("dcpills");
+  vcos.forEach(co=>{const b=document.createElement("button");b.className="cpill";b.textContent=co;b.dataset.co=co;if(co===S.dco){b.style.borderColor=CLC[co];b.style.background=CLC[co]+"22";b.style.color=CLC[co];}b.onclick=()=>{S.dco=co;document.querySelectorAll("[data-co]").forEach(p=>{const c=p.dataset.co;p.style.borderColor=c===co?CLC[c]:"#131e30";p.style.background=c===co?CLC[c]+"22":"transparent";p.style.color=c===co?CLC[c]:"#2a4060";});rdash();};pw.insertBefore(b,pw.firstChild);});
+  document.querySelectorAll(".sbtn").forEach(b=>{b.onclick=()=>{S.dsv=b.dataset.sv;document.querySelectorAll(".sbtn").forEach(x=>{const a=x.dataset.sv===S.dsv;x.style.background=a?CLC[S.dco]+"22":"transparent";x.style.color=a?CLC[S.dco]:"#2a4060";});rdash();};});
+  initEntry(vcos);initUpload(vcos);
+  const hf=G("hfilt");
+  if(u.company==="ALL"){["ALL","ABC","PSC","CSI"].forEach(co=>{const b=document.createElement("button");b.className="cpill";b.textContent=co;b.dataset.fco=co;if(co==="ALL"){b.style.borderColor="#3b82f6";b.style.background="#3b82f622";b.style.color="#3b82f6";}b.onclick=()=>{S.hfil=co;document.querySelectorAll("[data-fco]").forEach(p=>{const c=p.dataset.fco,ac=c===co;p.style.borderColor=ac?(CLC[c]||"#3b82f6"):"#131e30";p.style.background=ac?(CLC[c]||"#3b82f6")+"22":"transparent";p.style.color=ac?(CLC[c]||"#3b82f6"):"#2a4060";});rhist();};hf.appendChild(b);});}
+  G("obtn").onclick=logout;G("rbtn").onclick=()=>fetch2(false);
+  fetch2(false);S.poll=setInterval(()=>fetch2(true),8000);
+}
+
+function goPg(id){S.page=id;document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));G("pg-"+id).classList.add("active");const clr=CLC[S.user.company];document.querySelectorAll(".nav-btn").forEach(b=>{const a=b.dataset.page===id;b.classList.toggle("active",a);b.style.borderBottomColor=a?clr:"transparent";b.style.color=a?"#e8edf5":"#2a4060";});G("sbanner").style.display=id==="dashboard"?"flex":"none";if(id==="dashboard")rdash();if(id==="history")rhist();if(id==="admin")radmin();if(id==="entry")rentryv();}
+
+function logout(){clearInterval(S.poll);Object.values(S.charts).forEach(c=>c.destroy());S={...S,user:null,subs:{},page:"dashboard",charts:{},uploadData:null,uploadParsed:null};G("app").classList.add("hidden");G("login-screen").classList.remove("hidden");G("ntabs").innerHTML="";G("dcpills").innerHTML='<span id="synclbl" style="font-size:10px;color:#1e3050"></span>';G("hfilt").innerHTML="";G("iu").value="";G("ip").value="";G("lerr").classList.add("hidden");}
+function ubadge(){const sc=Object.keys(S.subs).length;document.querySelectorAll(".nav-btn").forEach(b=>{if(b.dataset.page==="history"){b.innerHTML="📋 History"+(sc>0?` <span style="background:${CLC[S.user?.company]}33;color:${CLC[S.user?.company]};border-radius:12px;padding:1px 6px;font-size:10px;font-weight:800">${sc}</span>`:"")}});}
+
+// ── MODE TOGGLE ───────────────────────────────────────────────────────────────
+function setMode(m){
+  S.entryMode=m;
+  const clr=CLC[S.eco]||"#3b82f6";
+  G("mode-manual").style.background=m==="manual"?clr+"22":"transparent";
+  G("mode-manual").style.color=m==="manual"?clr:"#2a4060";
+  G("mode-upload").style.background=m==="upload"?clr+"22":"transparent";
+  G("mode-upload").style.color=m==="upload"?clr:"#2a4060";
+  G("manual-mode").classList.toggle("hidden",m!=="manual");
+  G("upload-mode").classList.toggle("hidden",m!=="upload");
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function rdash(){
+  const co=S.dco,live=S.live,sv=S.dsv,clr=CLC[co];
+  const data=gct(live,co),avg=data.reduce((s,d)=>s+d.pct,0)/data.length,totOT=data.reduce((s,d)=>s+d.ot,0),peak=data.reduce((a,b)=>a.pct>b.pct?a:b),latest=data[data.length-1];
+  const depts=live[co]?.departments||{};
+  document.querySelectorAll(".sbtn").forEach(b=>{const a=b.dataset.sv===sv;b.style.background=a?clr+"22":"transparent";b.style.color=a?clr:"#2a4060";});
+  const kr=G("kpis");kr.innerHTML="";
+  [{label:"Latest OT %",value:fp(latest.pct),sub:latest.fullPeriod,hi:latest.pct>0.1},{label:"Avg OT Rate",value:fp(avg),sub:"8-period avg",hi:avg>0.1},{label:"Total OT Hrs",value:fn(totOT),sub:"YTD"},{label:"Peak Period",value:peak.period,sub:fp(peak.pct)},{label:"Depts",value:Object.keys(depts).length,sub:co+" units"}].forEach(k=>{const d=document.createElement("div");d.className="kpi";d.innerHTML=`<div class="kpi-lbl">${k.label}</div><div class="kpi-val" style="${k.hi?"color:"+clr:""}">${k.value}</div>${k.sub?`<div class="kpi-sub">${k.sub}</div>`:""}`; if(k.hi)d.style.borderColor=clr+"55";kr.appendChild(d);});
+  const cnt=G("dcontent");cnt.innerHTML="";
+  if(sv==="overview"){
+    cnt.innerHTML=`<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:3px">OT Rate Trend — ${co}</div><div style="font-size:11px;color:#2a4060;margin-bottom:10px">OT % of total hours</div><div style="height:220px;position:relative"><canvas id="cht1"></canvas></div></div><div class="g2"><div class="card"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:10px">Regular vs OT Hours</div><div style="height:190px;position:relative"><canvas id="cht2"></canvas></div></div><div class="card"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:12px">Dept OT Rankings</div><div id="dbars"></div></div></div>`;
+    const drows=Object.entries(depts).map(([n,pd])=>({n,avg:PDS.reduce((s,p)=>s+cp(pd[p]?.reg||0,pd[p]?.ot||0),0)/PDS.length})).sort((a,b)=>b.avg-a.avg);
+    const bw=G("dbars");if(bw){drows.forEach(d=>{const bc=d.avg>0.3?"#ef4444":d.avg>0.1?"#f59e0b":clr;const div=document.createElement("div");div.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:8px";div.innerHTML=`<div style="width:72px;font-size:11px;color:#6a809a;font-weight:600;flex-shrink:0">${d.n}</div><div style="flex:1;background:#0d1622;border-radius:3px;height:8px;overflow:hidden"><div style="width:${Math.min(d.avg*100,100)}%;height:100%;border-radius:3px;background:${bc}"></div></div><div style="width:44px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:${bc}">${fp(d.avg)}</div>`;bw.appendChild(div);});}
+    setTimeout(()=>{mkLine("cht1",SHP,[{label:"OT %",data:data.map(d=>+(d.pct*100).toFixed(2)),borderColor:clr,backgroundColor:clr+"22",fill:true}],v=>v+"%");mkBar("cht2",SHP,[{label:"Regular",data:data.map(d=>Math.round(d.reg)),backgroundColor:"#1a2640",stack:"a"},{label:"Overtime",data:data.map(d=>Math.round(d.ot)),backgroundColor:clr,stack:"a",borderRadius:{topLeft:4,topRight:4}}]);},50);
+  }
+  if(sv==="departments"){
+    const drows=Object.entries(depts).map(([n,pd])=>({n,avg:PDS.reduce((s,p)=>s+cp(pd[p]?.reg||0,pd[p]?.ot||0),0)/PDS.length})).sort((a,b)=>b.avg-a.avg);
+    const thc=SHP.map(p=>`<th style="text-align:center;font-size:10px">${p}</th>`).join("");
+    const trs=drows.map(({n,avg:a})=>{const pd=depts[n]||{};const cells=PDS.map(p=>{const v=cp(pd[p]?.reg||0,pd[p]?.ot||0);return`<td style="text-align:center;font-family:monospace;font-size:11px;color:${pc(v)}">${v>0?fp(v):"—"}</td>`;}).join("");return`<tr><td style="font-weight:700;color:#8aa0b8;font-size:12px">${n}</td>${cells}<td style="text-align:center;font-family:monospace;font-weight:700;color:${pc(a)};font-size:11px">${fp(a)}</td></tr>`;}).join("");
+    cnt.innerHTML=`<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:10px">Dept OT Trends — ${co}</div><div style="height:260px;position:relative"><canvas id="cht3"></canvas></div></div><div class="card" style="overflow-x:auto"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:12px">Period-by-Period Table</div><table><thead><tr><th style="text-align:left">Dept</th>${thc}<th style="text-align:center">Avg</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+    const dnames=drows.map(d=>d.n);
+    setTimeout(()=>{mkLine("cht3",SHP,dnames.map((n,i)=>({label:n,data:PDS.map(p=>+(cp(depts[n]?.[p]?.reg||0,depts[n]?.[p]?.ot||0)*100).toFixed(2)),borderColor:DPL[i%DPL.length],backgroundColor:"transparent",pointRadius:0,borderWidth:1.8})),v=>v+"%");},50);
+  }
+  if(sv==="compare"){
+    const cmpd=PDS.map((p,i)=>{const r={period:SHP[i]};["ABC","PSC","CSI"].forEach(c=>{const ds=live[c]?.departments||{};let reg=0,ot=0;Object.values(ds).forEach(d=>{reg+=d[p]?.reg||0;ot+=d[p]?.ot||0;});r[c]=+(cp(reg,ot)*100).toFixed(2);});return r;});
+    const cards=["ABC","PSC","CSI"].map(c=>{const d=gct(live,c),tOT=d.reduce((s,x)=>s+x.ot,0),a=d.reduce((s,x)=>s+x.pct,0)/d.length,pk=d.reduce((x,y)=>x.pct>y.pct?x:y),mx=Math.max(...d.map(x=>x.pct));const mb=d.map(x=>`<div style="flex:1"><div style="height:${mx>0?(x.pct/mx*34+2)+"px":"2px"};background:${x.pct>0.3?"#ef4444":x.pct>0.1?"#f59e0b":CLC[c]};border-radius:3px 3px 0 0;opacity:.85"></div></div>`).join("");return`<div style="background:#080e1a;border:1px solid ${CLC[c]}33;border-radius:12px;padding:16px"><div style="display:flex;gap:7px;align-items:center;margin-bottom:11px"><div style="width:7px;height:7px;border-radius:50%;background:${CLC[c]}"></div><span style="font-weight:800;color:${CLC[c]};font-size:13px">${c}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px">${[["Total OT",fn(tOT)],["Avg Rate",fp(a)],["Peak",pk.period],["Peak %",fp(pk.pct)]].map(([l,v])=>`<div><div style="font-size:9px;color:#2a4060;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">${l}</div><div style="font-size:13px;font-weight:800;font-family:monospace;color:#c8d8e8">${v}</div></div>`).join("")}</div><div style="display:flex;gap:3px;align-items:flex-end;height:38px">${mb}</div></div>`;}).join("");
+    cnt.innerHTML=`<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:10px">OT Rate — All Companies</div><div style="height:240px;position:relative"><canvas id="cht4"></canvas></div></div><div class="g3">${cards}</div>`;
+    setTimeout(()=>{mkLine("cht4",SHP,[{label:"ABC",data:cmpd.map(d=>d.ABC),borderColor:CLC.ABC,backgroundColor:"transparent",pointRadius:4},{label:"PSC",data:cmpd.map(d=>d.PSC),borderColor:CLC.PSC,backgroundColor:"transparent",pointRadius:4},{label:"CSI",data:cmpd.map(d=>d.CSI),borderColor:CLC.CSI,backgroundColor:"transparent",pointRadius:4}],v=>v+"%");},50);
+  }
+}
+
+// ── MANUAL ENTRY ──────────────────────────────────────────────────────────────
+function initEntry(vcos){
+  const wrap=G("ecobtns");
+  if(vcos.length>1){const lbl=document.createElement("label");lbl.className="clbl";lbl.textContent="Company";wrap.appendChild(lbl);const row=document.createElement("div");row.style.cssText="display:flex;gap:7px";vcos.forEach(co=>{const b=document.createElement("button");b.className="cpill";b.dataset.eco=co;b.textContent=co;if(co===S.eco){b.style.borderColor=CLC[co];b.style.background=CLC[co]+"22";b.style.color=CLC[co];}b.onclick=()=>{S.eco=co;document.querySelectorAll("[data-eco]").forEach(p=>{const c=p.dataset.eco,ac=c===co;p.style.borderColor=ac?CLC[c]:"#131e30";p.style.background=ac?CLC[c]+"22":"transparent";p.style.color=ac?CLC[c]:"#2a4060";});rentryv();};row.appendChild(b);});wrap.appendChild(row);}
+  const ps=G("eper");PDS.forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;ps.appendChild(o);});ps.onchange=()=>{S.eper=ps.value;rentryv();};
+  G("tdept").onclick=()=>{S.etab="departments";utabs();rentryv();};
+  G("tcc").onclick=()=>{S.etab="costcenters";utabs();rentryv();};
+  G("svbtn").onclick=dosave;
+  setMode("manual");
+}
+
+function utabs(){const clr=CLC[S.eco];G("tdept").style.background=S.etab==="departments"?clr+"33":"#060c18";G("tdept").style.color=S.etab==="departments"?clr:"#2a4060";G("tcc").style.background=S.etab==="costcenters"?clr+"33":"#060c18";G("tcc").style.color=S.etab==="costcenters"?clr:"#2a4060";}
+
+function rentryv(){
+  const co=S.eco,per=S.eper,tab=S.etab,clr=CLC[co],key=co+"::"+per+"::"+tab,saved=S.subs[key];
+  const items=tab==="departments"?DEPTS[co]:CCS[co],src=tab==="departments"?S.live[co]?.departments:S.live[co]?.costcenters;
+  G("svbtn").style.background=`linear-gradient(135deg,${clr},${clr}cc)`;utabs();
+  if(saved){S.erows={...saved.data};}else{const rows={};items.forEach(n=>{const s=src?.[n]?.[per];rows[n]={reg:s?.reg!=null?String(s.reg):"",ot:s?.ot!=null?String(s.ot):""};});S.erows=rows;}
+  const si=G("esaved");if(saved){si.style.display="block";si.textContent="✓ Saved "+ta(saved.submitted_at||saved.submittedAt)+" by "+(saved.submitted_by||saved.submittedBy);}else si.style.display="none";
+  G("ethdr").innerHTML=`<span class="bdg" style="background:${clr}22;color:${clr};border:1px solid ${clr}44">${co}</span><span style="font-size:13px;font-weight:700;color:#c8d8e8">${per}</span><span style="font-size:11px;color:#1e3050">· ${tab}</span>${saved?`<span class="bdg" style="background:#10b98122;color:#10b981;border:1px solid #10b98144">✓ In Database</span>`:""}`;
+  G("ethead").innerHTML=`<tr>${["#",tab==="departments"?"Department":"Cost Center","Reg Hrs","OT Hrs","OT %","Status"].map(h=>`<th style="text-align:${h==="#"||h==="OT %"||h==="Status"?"center":"left"}">${h}</th>`).join("")}</tr>`;
+  const tb=G("etbody");tb.innerHTML="";
+  items.forEach((item,idx)=>{const r=S.erows[item]||{reg:"",ot:""};const hb=r.reg!==""&&r.ot!=="";const pv=hb?cp(r.reg,r.ot):null;const st=r.reg!==""&&r.ot!==""?"<span style='font-size:10px;color:#10b981;font-weight:700'>✓</span>":r.reg!==""||r.ot!==""?"<span style='font-size:10px;color:#f59e0b;font-weight:700'>⚠</span>":"<span style='font-size:10px;color:#1e3050'>—</span>";const tr=document.createElement("tr");tr.innerHTML=`<td style="text-align:center;font-family:monospace;font-size:11px;color:#1e3050">${String(idx+1).padStart(2,"0")}</td><td style="font-weight:700;color:#8aa0b8">${item}</td><td style="padding:3px 6px"><input class="ei" type="number" min="0" step="0.01" placeholder="0.00" value="${r.reg}" data-item="${item}" data-field="reg"></td><td style="padding:3px 6px"><input class="ei" type="number" min="0" step="0.01" placeholder="0.00" value="${r.ot}" data-item="${item}" data-field="ot"></td><td style="text-align:center;font-family:monospace;font-size:13px;font-weight:700;color:${pv!==null?pc(pv):"#1e3050"}">${pv!==null?fp(pv):"—"}</td><td style="text-align:center">${st}</td>`;tb.appendChild(tr);});
+  tb.querySelectorAll(".ei").forEach(inp=>{inp.oninput=()=>{const item=inp.dataset.item,field=inp.dataset.field;S.erows[item]={...S.erows[item],[field]:inp.value};uestats();const row=inp.closest("tr"),rv=S.erows[item],hb=rv.reg!==""&&rv.ot!=="",pv=hb?cp(rv.reg,rv.ot):null;row.cells[4].textContent=pv!==null?fp(pv):"—";row.cells[4].style.color=pv!==null?pc(pv):"#1e3050";row.cells[5].innerHTML=rv.reg!==""&&rv.ot!==""?"<span style='font-size:10px;color:#10b981;font-weight:700'>✓</span>":rv.reg!==""||rv.ot!==""?"<span style='font-size:10px;color:#f59e0b;font-weight:700'>⚠</span>":"<span style='font-size:10px;color:#1e3050'>—</span>";};});
+  uestats();
+}
+
+function uestats(){const items=S.etab==="departments"?DEPTS[S.eco]:CCS[S.eco],rows=S.erows,tR=items.reduce((s,i)=>s+(parseFloat(rows[i]?.reg)||0),0),tO=items.reduce((s,i)=>s+(parseFloat(rows[i]?.ot)||0),0),op=cp(tR,tO),fl=items.filter(i=>rows[i]?.reg||rows[i]?.ot).length;const es=G("estats");es.innerHTML="";[{l:"Rows",v:`${fl}/${items.length}`,hi:false},{l:"Reg Hrs",v:fn(tR),hi:false},{l:"OT Hrs",v:fn(tO),hi:false},{l:"OT Rate",v:fp(op),hi:op>0.1}].forEach(({l,v,hi})=>{const d=document.createElement("div");d.className="kpi";if(hi)d.style.borderColor="#f59e0b55";d.innerHTML=`<div class="kpi-lbl">${l}</div><div class="kpi-val" style="${hi?"color:#f59e0b":""}">${v}</div>`;es.appendChild(d);});}
+
+async function dosave(){const co=S.eco,per=S.eper,tab=S.etab,items=tab==="departments"?DEPTS[co]:CCS[co];if(!items.some(i=>S.erows[i]?.reg||S.erows[i]?.ot)){toast("Enter at least one row.","error");return;}const btn=G("svbtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Saving…';try{await DB.upsert({key:co+"::"+per+"::"+tab,company:co,period:per,type:tab,data:S.erows,submitted_by:S.user.username,submitted_at:new Date().toISOString(),status:"submitted"});await fetch2(true);toast(co+" · "+per+" saved!");rentryv();}catch(e){toast("Save failed: "+e.message,"error");}btn.disabled=false;btn.innerHTML="💾 Save to Database";}
+
+// ── EXCEL UPLOAD ──────────────────────────────────────────────────────────────
+function initUpload(vcos){
+  const wrap=G("ucobtns");
+  if(vcos.length>1){const lbl=document.createElement("label");lbl.className="clbl";lbl.textContent="Company";wrap.appendChild(lbl);const row=document.createElement("div");row.style.cssText="display:flex;gap:7px";vcos.forEach(co=>{const b=document.createElement("button");b.className="cpill";b.dataset.uco=co;b.textContent=co;if(co===S.uploadCo){b.style.borderColor=CLC[co];b.style.background=CLC[co]+"22";b.style.color=CLC[co];}b.onclick=()=>{S.uploadCo=co;document.querySelectorAll("[data-uco]").forEach(p=>{const c=p.dataset.uco,ac=c===co;p.style.borderColor=ac?CLC[c]:"#131e30";p.style.background=ac?CLC[c]+"22":"transparent";p.style.color=ac?CLC[c]:"#2a4060";});};row.appendChild(b);});wrap.appendChild(row);}
+  const up=G("uper");PDS.forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;up.appendChild(o);});up.onchange=()=>{S.uploadPer=up.value;};
+}
+
+function handleDrop(e){e.preventDefault();G("dropzone").classList.remove("drag");const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+
+function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split(".").pop().toLowerCase();
+  if(!["xlsx","xls","csv"].includes(ext)){toast("Please upload an .xlsx, .xls, or .csv file","error");return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:"array"});
+      S.uploadData={wb,filename:file.name};
+      parseUpload(wb);
+    }catch(err){toast("Could not read file: "+err.message,"error");}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseUpload(wb){
+  const co=S.uploadCo,per=S.uploadPer||G("uper").value;
+  const allDepts=[...DEPTS[co],...CCS[co]].map(d=>d.toUpperCase());
+  const parsed={departments:{},costcenters:{}};
+  const errors=[];
+  const sheetResults=[];
+
+  wb.SheetNames.forEach(sname=>{
+    const ws=wb.Sheets[sname];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    if(!rows.length)return;
+
+    // Find header row - look for reg/ot column headers
+    let hdrRow=-1,nameCol=-1,regCol=-1,otCol=-1;
+    for(let r=0;r<Math.min(10,rows.length);r++){
+      const row=rows[r].map(c=>String(c).toUpperCase().trim());
+      const ri=row.findIndex(c=>c.includes("REG")||c.includes("REGULAR"));
+      const oi=row.findIndex(c=>c.includes("OT")||c.includes("OVERTIME"));
+      const ni=row.findIndex(c=>c.includes("DEPT")||c.includes("COST")||c.includes("NAME")||c.includes("UNIT")||c.includes("SECTION")||c==="DEPARTMENT");
+      if(ri>=0&&oi>=0){hdrRow=r;regCol=ri;otCol=oi;nameCol=ni>=0?ni:0;break;}
+    }
+
+    // If no header found, assume cols: 0=name, 1=reg, 2=ot
+    if(hdrRow===-1){
+      hdrRow=0;nameCol=0;regCol=1;otCol=2;
+    }
+
+    const sheetRows=[];
+    for(let r=hdrRow+1;r<rows.length;r++){
+      const row=rows[r];
+      const rawName=String(row[nameCol]||"").trim();
+      if(!rawName)continue;
+      const reg=parseFloat(row[regCol])||0;
+      const ot=parseFloat(row[otCol])||0;
+      if(!reg&&!ot)continue;
+
+      const nameUp=rawName.toUpperCase();
+      const isDept=DEPTS[co].some(d=>d.toUpperCase()===nameUp);
+      const isCC=CCS[co].some(d=>d.toUpperCase()===nameUp);
+
+      if(isDept){
+        const canonical=DEPTS[co].find(d=>d.toUpperCase()===nameUp);
+        parsed.departments[canonical]={reg,ot};
+        sheetRows.push({name:rawName,reg,ot,type:"dept",matched:true});
+      } else if(isCC){
+        const canonical=CCS[co].find(d=>d.toUpperCase()===nameUp);
+        parsed.costcenters[canonical]={reg,ot};
+        sheetRows.push({name:rawName,reg,ot,type:"cc",matched:true});
+      } else {
+        sheetRows.push({name:rawName,reg,ot,type:"unknown",matched:false});
+        errors.push(`Sheet "${sname}": "${rawName}" not recognized as a ${co} dept/cost center — skipped`);
+      }
+    }
+    if(sheetRows.length>0)sheetResults.push({sheet:sname,rows:sheetRows});
+  });
+
+  S.uploadParsed={parsed,errors,sheetResults,co,per};
+  showUploadPreview(S.uploadParsed);
+}
+
+function showUploadPreview({parsed,errors,sheetResults,co,per}){
+  const clr=CLC[co];
+  const dCount=Object.keys(parsed.departments).length;
+  const cCount=Object.keys(parsed.costcenters).length;
+  const total=dCount+cCount;
+
+  G("upload-preview").classList.remove("hidden");
+  G("preview-title").textContent=`Preview — ${co} · ${per}`;
+  G("preview-sub").textContent=`${total} rows matched · ${dCount} departments · ${cCount} cost centers`;
+
+  G("upload-save-btn").style.background=`linear-gradient(135deg,${clr},${clr}cc)`;
+
+  // Stats
+  const tReg=Object.values({...parsed.departments,...parsed.costcenters}).reduce((s,r)=>s+r.reg,0);
+  const tOT=Object.values({...parsed.departments,...parsed.costcenters}).reduce((s,r)=>s+r.ot,0);
+  const us=G("upload-stats");us.innerHTML="";
+  [{l:"Matched Rows",v:String(total),hi:false},{l:"Reg Hrs",v:fn(tReg),hi:false},{l:"OT Hrs",v:fn(tOT),hi:false},{l:"OT Rate",v:fp(cp(tReg,tOT)),hi:cp(tReg,tOT)>0.1}].forEach(({l,v,hi})=>{const d=document.createElement("div");d.className="kpi";if(hi)d.style.borderColor="#f59e0b55";d.innerHTML=`<div class="kpi-lbl">${l}</div><div class="kpi-val" style="${hi?"color:#f59e0b":""}">${v}</div>`;us.appendChild(d);});
+
+  // Sheet tabs
+  const tb=G("sheet-tabs");tb.innerHTML="";
+  sheetResults.forEach((s,i)=>{const t=document.createElement("div");t.className="tab-item"+(i===0?" active":"");t.textContent=s.sheet+" ("+s.rows.length+")";t.dataset.si=i;t.onclick=()=>{document.querySelectorAll(".tab-item").forEach(x=>x.classList.remove("active"));t.classList.add("active");showSheetPreview(sheetResults[i]);};tb.appendChild(t);});
+  if(sheetResults.length>0)showSheetPreview(sheetResults[0]);
+
+  // Errors
+  if(errors.length>0){G("upload-errors").classList.remove("hidden");G("error-list").innerHTML=errors.map(e=>`<div>• ${e}</div>`).join("");}
+  else G("upload-errors").classList.add("hidden");
+}
+
+function showSheetPreview(sr){
+  G("prev-head").innerHTML=`<tr><th style="text-align:left">Name</th><th style="text-align:center">Type</th><th style="text-align:right">Reg Hrs</th><th style="text-align:right">OT Hrs</th><th style="text-align:right">OT %</th><th style="text-align:center">Status</th></tr>`;
+  const tb=G("prev-body");tb.innerHTML="";
+  sr.rows.forEach(r=>{const pv=cp(r.reg,r.ot);const tr=document.createElement("tr");tr.innerHTML=`<td style="font-weight:700;color:#8aa0b8">${r.name}</td><td style="text-align:center"><span style="font-size:10px;color:${r.type==="dept"?"#3b82f6":r.type==="cc"?"#8b5cf6":"#4b6080"};font-weight:700">${r.type==="dept"?"DEPT":r.type==="cc"?"CC":"?"}</span></td><td style="text-align:right;font-family:monospace;color:#6a809a">${fn(r.reg)}</td><td style="text-align:right;font-family:monospace;color:#6a809a">${fn(r.ot)}</td><td style="text-align:right;font-family:monospace;font-weight:700;color:${r.matched?pc(pv):"#5a2020"}">${r.matched?fp(pv):"—"}</td><td style="text-align:center"><span style="font-size:10px;font-weight:700;color:${r.matched?"#10b981":"#ef4444"}">${r.matched?"✓ Matched":"✗ Skipped"}</span></td>`;tb.appendChild(tr);});
+}
+
+function clearUpload(){S.uploadData=null;S.uploadParsed=null;G("upload-preview").classList.add("hidden");G("upload-errors").classList.add("hidden");G("sheet-tabs").innerHTML="";G("prev-head").innerHTML="";G("prev-body").innerHTML="";}
+
+async function saveUpload(){
+  const p=S.uploadParsed;if(!p){toast("No data to save","error");return;}
+  const{parsed,co,per}=p;
+  const btn=G("upload-save-btn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Saving…';
+  const promises=[];
+  if(Object.keys(parsed.departments).length>0){
+    const data={};Object.entries(parsed.departments).forEach(([n,v])=>{data[n]={reg:String(v.reg),ot:String(v.ot)};});
+    promises.push(DB.upsert({key:co+"::"+per+"::departments",company:co,period:per,type:"departments",data,submitted_by:S.user.username,submitted_at:new Date().toISOString(),status:"submitted"}));
+  }
+  if(Object.keys(parsed.costcenters).length>0){
+    const data={};Object.entries(parsed.costcenters).forEach(([n,v])=>{data[n]={reg:String(v.reg),ot:String(v.ot)};});
+    promises.push(DB.upsert({key:co+"::"+per+"::costcenters",company:co,period:per,type:"costcenters",data,submitted_by:S.user.username,submitted_at:new Date().toISOString(),status:"submitted"}));
+  }
+  try{
+    await Promise.all(promises);
+    await fetch2(true);
+    toast(`Excel data saved! ${Object.keys(parsed.departments).length} depts + ${Object.keys(parsed.costcenters).length} cost centers → ${co} · ${per}`);
+    clearUpload();
+    setTimeout(()=>goPg("dashboard"),1500);
+  }catch(e){toast("Save failed: "+e.message,"error");}
+  btn.disabled=false;btn.innerHTML="💾 Save to Database";
+}
+
+// Template download
+function dlTemplate(type){
+  const co=S.uploadCo||S.eco;
+  const items=type==="departments"?DEPTS[co]:CCS[co];
+  const ws_data=[["Department/Cost Center","Regular Hrs","Overtime Hrs"],...items.map(n=>[n,"",""])];
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);
+  ws["!cols"]=[{wch:30},{wch:15},{wch:15}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,type==="departments"?"Departments":"Cost Centers");
+  XLSX.writeFile(wb,`${co}_${type}_template.xlsx`);
+  toast("Template downloaded!");
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function rhist(){const vcos=S.user.company==="ALL"?["ABC","PSC","CSI"]:[S.user.company];const entries=Object.entries(S.subs).filter(([,v])=>vcos.includes(v.company)&&(S.hfil==="ALL"||v.company===S.hfil)).sort((a,b)=>new Date(b[1].submitted_at||b[1].submittedAt)-new Date(a[1].submitted_at||a[1].submittedAt));G("hcnt").textContent=entries.length+" database entries · shared across all users";const list=G("hlist");list.innerHTML="";if(!entries.length){list.innerHTML='<div style="text-align:center;padding:50px 0;color:#1e3050;font-size:14px">No submissions yet.</div>';return;}entries.forEach(([key,e])=>{const clr=CLC[e.company],items=e.type==="departments"?DEPTS[e.company]:CCS[e.company],tOT=items.reduce((s,i)=>s+(parseFloat(e.data?.[i]?.ot)||0),0),tReg=items.reduce((s,i)=>s+(parseFloat(e.data?.[i]?.reg)||0),0),pv=cp(tReg,tOT),ts=e.submitted_at||e.submittedAt,by=e.submitted_by||e.submittedBy;const src=e.source==="excel"?`<span class="bdg" style="background:#10b98122;color:#10b981;border:1px solid #10b98144;margin-left:4px">📤 Excel</span>`:"";const dr=items.filter(i=>e.data?.[i]?.reg||e.data?.[i]?.ot).map(item=>{const r=e.data[item],p2=cp(r.reg||0,r.ot||0);return`<tr><td style="color:#8aa0b8;font-weight:600;font-size:12px">${item}</td><td style="text-align:right;font-family:monospace;color:#4b6080;font-size:11px">${parseFloat(r.reg||0).toFixed(2)}</td><td style="text-align:right;font-family:monospace;color:#4b6080;font-size:11px">${parseFloat(r.ot||0).toFixed(2)}</td><td style="text-align:right;font-family:monospace;font-weight:700;color:${pc(p2)};font-size:11px">${fp(p2)}</td></tr>`;}).join("");const row=document.createElement("div");row.className="hrow";row.innerHTML=`<div class="hhdr" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block';this.querySelector('.chv').style.transform=b.style.display==='block'?'rotate(180deg)':'none'"><div style="width:30px;height:30px;border-radius:7px;background:${CDM[e.company]};border:1px solid ${clr}44;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${clr};flex-shrink:0">${e.company}</div><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#c8d8e8;display:flex;align-items:center;gap:4px">${e.period}${src}</div><div style="font-size:11px;color:#2a4060;text-transform:capitalize">${e.type} · ${by} · ${ta(ts)}</div></div><div style="text-align:right;margin-right:6px"><div style="font-size:12px;font-weight:800;font-family:monospace;color:${pc(pv)}">${fp(pv)}</div><div style="font-size:10px;color:#2a4060">OT Rate</div></div><div style="text-align:right;margin-right:8px"><div style="font-size:12px;font-weight:700;color:#8aa0b8;font-family:monospace">${fn(tOT)}</div><div style="font-size:10px;color:#2a4060">OT Hrs</div></div><div class="chv" style="font-size:13px;color:#1e3050;transition:transform .2s;margin-left:auto">▾</div></div><div class="hbody"><table><thead><tr><th style="text-align:left">${e.type==="departments"?"Dept":"CC"}</th><th style="text-align:right">Reg</th><th style="text-align:right">OT</th><th style="text-align:right">OT%</th></tr></thead><tbody>${dr}</tbody></table><div style="margin-top:8px;display:flex;justify-content:flex-end"><button onclick="ddel('${key.replace(/'/g,"\\'")}');" style="padding:5px 12px;border-radius:6px;border:1px solid #2a1515;background:transparent;color:#5a2020;font-size:12px;cursor:pointer;font-weight:600">🗑 Delete</button></div></div>`;list.appendChild(row);});}
+async function ddel(key){if(!confirm("Delete from database?"))return;try{await DB.remove(key);await fetch2(true);toast("Deleted.");}catch(e){toast("Delete failed: "+e.message,"error");}}
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+function radmin(){const subs=S.subs,ac=G("acards");ac.innerHTML="";["ABC","PSC","CSI"].forEach(co=>{const es=Object.values(subs).filter(e=>e.company===co),tOT=es.reduce((s,e)=>s+Object.values(e.data||{}).reduce((ss,r)=>ss+(parseFloat(r.ot)||0),0),0),pds=new Set(es.map(e=>e.period)).size,sub=[...new Set(es.map(e=>e.submitted_by||e.submittedBy))].length;const d=document.createElement("div");d.style.cssText=`background:#080e1a;border:1px solid ${CLC[co]}33;border-radius:12px;padding:15px`;d.innerHTML=`<div style="display:flex;gap:7px;align-items:center;margin-bottom:11px"><div style="width:7px;height:7px;border-radius:50%;background:${CLC[co]}"></div><span style="font-weight:800;color:${CLC[co]};font-size:13px">${co}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["Submissions",es.length],["Periods",pds],["OT Hrs",fn(tOT)],["Submitters",sub||"—"]].map(([l,v])=>`<div><div style="font-size:9px;color:#2a4060;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">${l}</div><div style="font-size:13px;font-weight:800;font-family:monospace;color:#c8d8e8">${v}</div></div>`).join("")}</div>`;ac.appendChild(d);});const ct=G("ctbl"),thc=["ABC","PSC","CSI"].map(c=>`<th style="text-align:center;color:${CLC[c]}">${c}</th>`).join("");let rows="";PDS.forEach(p=>{const cells=["ABC","PSC","CSI"].map(c=>{const n=(subs[c+"::"+p+"::departments"]?1:0)+(subs[c+"::"+p+"::costcenters"]?1:0);return`<td style="text-align:center">${n===2?`<span style="color:#10b981;font-weight:700;font-size:11px">✓ Complete</span>`:n===1?`<span style="color:#f59e0b;font-weight:700;font-size:11px">⚠ Partial</span>`:`<span style="color:#1e3050;font-size:11px">— Missing</span>`}</td>`;}).join("");rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#4b6080">${p}</td>${cells}</tr>`;});ct.innerHTML=`<thead><tr><th style="text-align:left">Period</th>${thc}</tr></thead><tbody>${rows}</tbody>`;}
+</script>
+</body>
+</html>

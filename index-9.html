@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Overtime Intelligence · 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#070c14;color:#e0e8f4;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0a1220}
+::-webkit-scrollbar-thumb{background:#1e3050;border-radius:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.97)}}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid #1e3050;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+.blink{animation:blink 1s infinite}
+.hidden{display:none!important}
+.page{display:none}
+.page.active{display:block}
+.nav-btn{padding:0 16px;height:56px;border:none;background:none;border-bottom:2px solid transparent;color:#2a4060;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.nav-btn.active{color:#e8edf5}
+.card{background:#080e1a;border:1px solid #131e30;border-radius:14px;padding:20px}
+.kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.kpi{background:#0a1220;border:1px solid #131e30;border-radius:12px;padding:14px 16px;flex:1;min-width:110px}
+.kpi-lbl{font-size:10px;color:#2a4060;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.kpi-val{font-size:21px;font-weight:800;color:#c8d8e8;font-family:monospace}
+.kpi-sub{font-size:11px;color:#2a4060;margin-top:2px}
+.bdg{border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700}
+table{width:100%;border-collapse:collapse}
+th{color:#2a4060;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #0d1622}
+td{padding:7px 10px;border-bottom:1px solid #060912;font-size:12px}
+tr:nth-child(even) td{background:#06090f}
+.ei{width:100%;background:#06090f;border:1px solid #0d1622;border-radius:6px;padding:6px 8px;color:#c8d8e8;font-size:13px;font-family:monospace;text-align:right}
+.ei:focus{outline:1px solid #3b82f644}
+.ei.prefilled{border-color:#3b82f633;background:#06090f}
+select.ctrl{background:#060c18;border:1px solid #131e30;border-radius:8px;padding:8px 12px;color:#c8d8e8;font-size:13px;outline:none}
+.toast{position:fixed;top:20px;right:24px;z-index:9999;border-radius:10px;padding:12px 18px;font-size:13px;font-weight:600;box-shadow:0 8px 32px #00000080;animation:fadein .2s ease;pointer-events:none}
+.sbtn{padding:7px 15px;border:none;border-right:1px solid #131e30;font-weight:700;font-size:12px}
+.clbl{font-size:10px;color:#2a4060;font-weight:700;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:5px}
+.tgrp{display:flex;border:1px solid #131e30;border-radius:8px;overflow:hidden}
+.tbtn{padding:7px 13px;border:none;font-weight:600;font-size:12px}
+.cpill{padding:6px 13px;border-radius:8px;border:1px solid #131e30;background:transparent;color:#2a4060;font-weight:700;font-size:12px}
+.hrow{background:#080e1a;border:1px solid #131e30;border-radius:12px;overflow:hidden;margin-bottom:8px}
+.hhdr{padding:11px 15px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.hbody{border-top:1px solid #0d1622;padding:12px 15px;display:none}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+/* Upload zone */
+
+/* Period Manager */
+.modal-overlay{position:fixed;inset:0;background:#00000088;backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#080e1a;border:1px solid #1e3050;border-radius:18px;padding:28px 28px 24px;width:min(540px,100%);max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px #00000090}
+.period-card{background:#0a1220;border:1px solid #131e30;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:8px;transition:border-color .2s}
+.period-card.active-p{border-color:#3b82f644}
+.period-card.seed-p{opacity:.65}
+.pi{background:#06090f;border:1px solid #0d1622;border-radius:7px;padding:8px 11px;color:#c8d8e8;font-size:13px;outline:none;width:100%}
+.pi:focus{border-color:#3b82f644}
+
+.upload-zone{border:2px dashed #1e3050;border-radius:14px;padding:32px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#06090f;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:#3b82f6;background:#06101e}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-preview{background:#080e1a;border:1px solid #131e30;border-radius:12px;overflow:hidden;margin-top:16px}
+.tab-bar{display:flex;background:#0a1220;border-bottom:1px solid #131e30;overflow-x:auto}
+.tab-item{padding:10px 16px;font-size:12px;font-weight:700;color:#2a4060;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
+.tab-item.active{color:#e8edf5;border-bottom-color:#3b82f6}
+.mode-toggle{display:flex;gap:0;background:#0a1220;border:1px solid #131e30;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.mode-btn{padding:9px 20px;border:none;font-weight:700;font-size:12px;flex:1;transition:all .15s}
+@media(max-width:680px){.g2{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}.kpi{min-width:calc(50% - 5px)}.nav-btn{padding:0 10px;font-size:11px}}
+@media(max-width:400px){.g3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 30% 20%,#0d1a2e,#060a12 60%,#000408);position:relative">
+    <div style="position:fixed;inset:0;opacity:.04;background-image:linear-gradient(#3b82f6 1px,transparent 1px),linear-gradient(90deg,#3b82f6 1px,transparent 1px);background-size:44px 44px;pointer-events:none"></div>
+    <div style="width:min(420px,92vw);background:#0a1220;border:1px solid #1a2e48;border-radius:20px;padding:38px 34px;position:relative;z-index:1;box-shadow:0 0 80px #3b82f614,0 40px 80px #00000080">
+      <div style="text-align:center;margin-bottom:26px">
+        <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#1e3a5f,#0d1f36);border:1px solid #3b82f640;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">📊</div>
+        <div style="font-size:19px;font-weight:800;color:#e8edf5">Overtime Intelligence</div>
+        <div style="font-size:11px;color:#3b82f6;margin-top:4px;font-weight:600;letter-spacing:.1em">LIVE · PROCESS OWNER PORTAL · 2026</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div><label class="clbl">Username</label><input id="iu" type="text" placeholder="e.g. po.psc" style="width:100%;background:#060d18;border:1px solid #1a2e48;border-radius:9px;padding:10px 13px;color:#e8edf5;font-size:13px;outline:none;font-family:monospace"></div>
+        <div><label class="clbl">Password</label><input id="ip" type="password" placeholder="••••••••" style="width:100%;background:#060d18;border:1px solid #1a2e48;border-radius:9px;padding:10px 13px;color:#e8edf5;font-size:13px;outline:none"></div>
+        <div id="lerr" class="hidden" style="background:#ef444418;border:1px solid #ef444440;border-radius:7px;padding:8px 12px;font-size:12px;color:#ef4444"></div>
+        <button id="lbtn" style="margin-top:3px;padding:12px;border-radius:9px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">Sign In →</button>
+      </div>
+      <div style="margin-top:20px;border-top:1px solid #0d1e30;padding-top:15px">
+        <div style="font-size:10px;color:#1e3050;margin-bottom:7px;font-weight:700;letter-spacing:.08em">DEMO CREDENTIALS · CLICK TO FILL</div>
+        <div id="clist" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 18px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden" style="display:flex;flex-direction:column;min-height:100vh">
+  <div style="background:#060c18;border-bottom:1px solid #0d1622;padding:0 22px;position:sticky;top:0;z-index:100">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:54px;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#1e3a5f,#0d1f36);display:flex;align-items:center;justify-content:center;font-size:13px">📊</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#e8edf5">Overtime Intelligence</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:1px">
+            <div id="dbdot" style="width:5px;height:5px;border-radius:50%;background:#f59e0b" class="blink"></div>
+            <span id="dblbl" style="font-size:9px;color:#4a3010;font-weight:700;letter-spacing:.1em">CONNECTING…</span>
+            <span id="nspin" class="spinner hidden"></span>
+          </div>
+        </div>
+      </div>
+      <div id="ntabs" style="display:flex;overflow-x:auto"></div>
+      <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+        <button id="rbtn" title="Refresh" style="width:27px;height:27px;border-radius:6px;border:1px solid #131e30;background:none;color:#2a4060;font-size:13px;display:flex;align-items:center;justify-content:center">↻</button>
+        <div id="uav" style="width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0"></div>
+        <button id="obtn" style="padding:4px 9px;background:none;border:1px solid #0d1622;border-radius:6px;color:#2a4060;font-size:11px;font-weight:600">Out</button>
+      </div>
+    </div>
+  </div>
+  <div id="sbanner" style="background:#06090f;border-bottom:1px solid #0d1622;padding:5px 22px;display:flex;align-items:center;gap:12px">
+    <div style="display:flex;align-items:center;gap:5px"><div id="bdot" style="width:5px;height:5px;border-radius:50%;background:#f59e0b"></div><span id="blbl" style="font-size:10px;color:#3a2a10;font-weight:700;letter-spacing:.08em">SYNCING</span></div>
+    <span id="btxt" style="font-size:11px;color:#1e3050">Connecting…</span>
+  </div>
+  <div style="padding:20px 22px;max-width:1320px;margin:0 auto;width:100%;flex:1">
+
+    <!-- DASHBOARD -->
+    <div id="pg-dashboard" class="page active">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;gap:0;background:#0a1220;border:1px solid #131e30;border-radius:10px;overflow:hidden">
+          <button class="sbtn" data-sv="overview">📊 Overview</button>
+          <button class="sbtn" data-sv="departments">🏢 Depts</button>
+          <button class="sbtn" data-sv="compare">🔀 Compare</button>
+        </div>
+        <div id="dcpills" style="display:flex;gap:7px;align-items:center"><span id="synclbl" style="font-size:10px;color:#1e3050"></span></div>
+      </div>
+      <div id="kpis" class="kpi-row"></div>
+      <div id="dcontent"></div>
+    </div>
+
+    <!-- ENTRY -->
+    <div id="pg-entry" class="page">
+      <!-- Mode toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-manual" onclick="setMode('manual')">✏ Manual Entry</button>
+        <button class="mode-btn" id="mode-upload" onclick="setMode('upload')">📤 Upload Excel</button>
+      </div>
+
+      <!-- MANUAL MODE -->
+      <div id="manual-mode">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end">
+          <div id="ecobtns"></div>
+          <div><label class="clbl">Cut-off Period</label><select id="eper" class="ctrl"></select></div>
+          <div><label class="clbl">Level</label><div class="tgrp"><button class="tbtn" id="tdept" data-tab="departments">Departments</button><button class="tbtn" id="tcc" data-tab="costcenters">Cost Centers</button></div></div>
+          <div style="margin-left:auto;display:flex;gap:9px;align-items:flex-end">
+            <div id="esaved" style="font-size:11px;color:#1a5035;background:#0a1e16;border:1px solid #1a3828;border-radius:8px;padding:7px 11px;display:none"></div>
+            <button id="svbtn" style="padding:8px 18px;border-radius:8px;border:none;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px">💾 Save to Database</button>
+          </div>
+        </div>
+        <div id="estats" class="kpi-row" style="margin-bottom:12px"></div>
+        <div style="background:#080e1a;border:1px solid #131e30;border-radius:14px;overflow:hidden">
+          <div id="ethdr" style="padding:10px 15px;background:#0a1220;border-bottom:1px solid #131e30;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
+          <div style="overflow-x:auto"><table><thead id="ethead"></thead><tbody id="etbody"></tbody></table></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#1e3050">💡 Saves to Supabase · All users see updates within ~8 seconds</div>
+      </div>
+
+      <!-- UPLOAD MODE -->
+      <div id="upload-mode" class="hidden">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+          <div id="ucobtns"></div>
+          <div><label class="clbl">Cut-off Period (for this upload)</label><select id="uper" class="ctrl"></select></div>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="upload-zone" id="dropzone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])">
+          <div style="font-size:32px;margin-bottom:12px">📂</div>
+          <div style="font-size:15px;font-weight:700;color:#c8d8e8;margin-bottom:6px">Drop your Excel file here</div>
+          <div style="font-size:12px;color:#2a4060;margin-bottom:12px">or click to browse · .xlsx, .xls, .csv supported</div>
+          <div style="display:inline-flex;align-items:center;gap:8px;background:#0a1220;border:1px solid #131e30;border-radius:8px;padding:8px 16px;font-size:12px;color:#4b6080">
+            <span>📋</span> Expected columns: <b style="color:#8aa0b8">Department/Cost Center · Regular Hrs · Overtime Hrs</b>
+          </div>
+        </div>
+
+        <!-- Template download -->
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button onclick="dlTemplate('departments')" style="padding:8px 16px;border-radius:8px;border:1px solid #1e3050;background:#0a1220;color:#4b6080;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">⬇ Download Dept Template</button>
+          <button onclick="dlTemplate('costcenters')" style="padding:8px 16px;border-radius:8px;border:1px solid #1e3050;background:#0a1220;color:#4b6080;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">⬇ Download Cost Center Template</button>
+        </div>
+
+        <!-- Preview -->
+        <div id="upload-preview" class="hidden" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#e8edf5" id="preview-title">Preview</div>
+              <div style="font-size:11px;color:#2a4060;margin-top:2px" id="preview-sub"></div>
+            </div>
+            <div style="display:flex;gap:9px">
+              <button onclick="clearUpload()" style="padding:7px 14px;border-radius:7px;border:1px solid #1e3050;background:transparent;color:#4b6080;font-size:12px;font-weight:600">✕ Clear</button>
+              <button id="upload-save-btn" onclick="saveUpload()" style="padding:8px 18px;border-radius:8px;border:none;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px">💾 Save to Database</button>
+            </div>
+          </div>
+          <!-- Stats -->
+          <div id="upload-stats" class="kpi-row" style="margin-bottom:12px"></div>
+          <!-- Tabs for sheets -->
+          <div id="sheet-tabs" class="tab-bar"></div>
+          <div class="upload-preview" style="border-radius:0 0 12px 12px">
+            <div style="overflow-x:auto"><table><thead id="prev-head"></thead><tbody id="prev-body"></tbody></table></div>
+          </div>
+        </div>
+
+        <!-- Error panel -->
+        <div id="upload-errors" class="hidden" style="margin-top:12px;background:#2a0d0d;border:1px solid #ef444440;border-radius:12px;padding:16px">
+          <div style="font-size:13px;font-weight:700;color:#ef4444;margin-bottom:8px">⚠ Issues Found</div>
+          <div id="error-list" style="font-size:12px;color:#8a3030;line-height:1.8"></div>
+        </div>
+
+        <div style="margin-top:10px;font-size:11px;color:#1e3050">
+          💡 Upload auto-detects Department or Cost Center columns · Unrecognized rows are skipped · Download the template for the exact expected format
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="pg-history" class="page">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div><div style="font-size:16px;font-weight:800;color:#e8edf5">Submission History</div><div id="hcnt" style="font-size:12px;color:#2a4060;margin-top:2px"></div></div>
+        <div id="hfilt" style="display:flex;gap:7px"></div>
+      </div>
+      <div id="hlist"></div>
+    </div>
+
+
+    <!-- PERIODS -->
+    <div id="pg-periods" class="page">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#e8edf5">Period Manager</div>
+          <div style="font-size:12px;color:#2a4060;margin-top:2px">Add, edit or remove cut-off periods · affects all data entry and dashboard views</div>
+        </div>
+        <button onclick="openAddPeriod()" id="add-period-btn" style="padding:9px 18px;border-radius:9px;border:none;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px">＋ Add Period</button>
+      </div>
+
+      <!-- Legend -->
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#2a4060"><div style="width:10px;height:10px;border-radius:2px;background:#3b82f633;border:1px solid #3b82f644"></div> Active · shown in dashboard &amp; entry</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#2a4060"><div style="width:10px;height:10px;border-radius:2px;background:#1e3050"></div> Inactive · hidden from views</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#2a4060"><div style="width:10px;height:10px;border-radius:2px;background:#0a1220;border:1px dashed #1e3050"></div> Seed · built-in, cannot delete</div>
+      </div>
+
+      <div id="period-list"></div>
+    </div>
+
+    <!-- ADD/EDIT PERIOD MODAL -->
+    <div id="period-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div style="font-size:16px;font-weight:800;color:#e8edf5;margin-bottom:4px" id="modal-title">Add New Period</div>
+        <div style="font-size:12px;color:#2a4060;margin-bottom:20px">This period will be available in all entry forms and dashboard filters</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label class="clbl">Period Label <span style="color:#4b6080;font-weight:400;text-transform:none;letter-spacing:0">(how it appears in menus)</span></label>
+            <input id="pmod-label" class="pi" type="text" placeholder="e.g. Apr 20 - May 3, 2026" maxlength="40">
+          </div>
+          <div class="g2">
+            <div>
+              <label class="clbl">Start Date</label>
+              <input id="pmod-start" class="pi" type="date">
+            </div>
+            <div>
+              <label class="clbl">End Date</label>
+              <input id="pmod-end" class="pi" type="date">
+            </div>
+          </div>
+          <div>
+            <label class="clbl">Short Label <span style="color:#4b6080;font-weight:400;text-transform:none;letter-spacing:0">(shown on chart axis, max 8 chars)</span></label>
+            <input id="pmod-short" class="pi" type="text" placeholder="e.g. Apr 20" maxlength="8">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="pmod-active" checked style="width:16px;height:16px;accent-color:#3b82f6">
+            <label for="pmod-active" style="font-size:13px;color:#c8d8e8;font-weight:600;cursor:pointer">Active — show in dashboard &amp; entry forms</label>
+          </div>
+          <div id="pmod-err" class="hidden" style="background:#ef444418;border:1px solid #ef444440;border-radius:7px;padding:8px 12px;font-size:12px;color:#ef4444"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end">
+          <button onclick="closePeriodModal()" style="padding:9px 18px;border-radius:8px;border:1px solid #1e3050;background:transparent;color:#4b6080;font-size:13px;font-weight:600">Cancel</button>
+          <button id="pmod-save" onclick="savePeriodModal()" style="padding:9px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:13px">Save Period</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="pg-admin" class="page">
+      <div style="font-size:16px;font-weight:800;color:#e8edf5;margin-bottom:14px">Admin Overview — Live Database</div>
+      <div id="acards" class="g3" style="margin-bottom:18px"></div>
+      <div class="card"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:12px">Coverage Matrix</div><div style="overflow-x:auto"><table id="ctbl"></table></div></div>
+    </div>
+
+  </div>
+</div>
+<div id="tc"></div>
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const SURL="https://bhmgchimftgtqniswvuf.supabase.co";
+const SKEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJobWdjaGltZnRndHFuaXN3dnVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4ODQyMjcsImV4cCI6MjA5NDQ2MDIyN30.VNYw1JR1d0D85A8YJNm_PVqTD_ya5WzK2iLNQj0DHGs";
+const SH={"Content-Type":"application/json","apikey":SKEY,"Authorization":"Bearer "+SKEY};
+async function sbF(p,o={}){const r=await fetch(SURL+"/rest/v1"+p,{...o,headers:{...SH,...(o.headers||{})}});if(!r.ok){const e=await r.text();throw new Error(e);}return r.status===204?null:r.json();}
+const DB={getAll:()=>sbF("/ot_submissions?select=*&order=submitted_at.desc"),upsert:(row)=>sbF("/ot_submissions?on_conflict=key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify(row)}),remove:(k)=>sbF("/ot_submissions?key=eq."+encodeURIComponent(k),{method:"DELETE"})};
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const PDS=["Dec 8 - Jan 4","Jan 5 - Jan 18","Jan 19 - Feb 2","Feb 3 - Feb 17","Feb 18 - Mar 2","Mar 3 - Mar 17","Mar 18 - Mar 26","Mar 27 - Apr 19"];
+const SHP=["Dec 8","Jan 5","Jan 19","Feb 3","Feb 18","Mar 3","Mar 18","Mar 27"];
+const CLC={ABC:"#3b82f6",PSC:"#8b5cf6",CSI:"#f59e0b",ALL:"#10b981"};
+const CDM={ABC:"#1a2640",PSC:"#211a40",CSI:"#2e2409",ALL:"#0d2a1e"};
+const DPL=["#3b82f6","#8b5cf6","#f59e0b","#10b981","#ef4444","#06b6d4","#f97316","#84cc16","#e879f9","#64748b","#fbbf24","#a3e635","#f43f5e","#22d3ee"];
+const DEPTS={"ABC":["ABC","FAD"],"PSC":["AMD","ARKI","FAD","HRD","ITD","OMD-ED","OMD-FW","OMD-MD","OMD-OPS","PEG","SCM","SID","SKILLS COOP","SMD"],"CSI":["ADMIN","AG","P&L","PRECAST","QC","R&M","S&M"]};
+const CCS={"ABC":["ABC-ADMIN","ABC-BLOCK","ABC-EAM","ABC-PROD","ABC-QA/C","ABC-SAM","ABC-WAL"],"PSC":["A/R SLAB PLA","AMD-AM","ARCHITECTURE","BADIANFISHPN","BDOCFT","BUNKHOUSE","CIG-OD","CIRCA","CSI SY - B","E.D- REPAIR","E.D.-LOGISTI","ED COMM","ED RENTALS","ELECTRO-MECH","ENGINEERING","FAD-CNC","FAD-FPA","FAD-GA","FAD-PR","FAD-TD","FORMWORKS","HRD-EE","HRD-LP","HRD-OHS","HRD-RNF","HRD-TA","HRD-TR","ITD","ITD-AMS","ITD-APPS","ITD-INFRA","ITD-OPS","LP NEGROS","MD","MED","MINGLANILLAP","OM-LHT","OM-PPC 34","OM-PPC 36","OM-PPC38","OM-SHANG","OM-T2","PPC 34 CLIP","PSC - PEBS","PSC MNL","RHBOHOL DOS","RO","ROMA","ROPA 2","RP BOHOL","SCM","SI","SKILLS COOP","SM","SM ASH","ST. PHOCAS","TEM","TH","VIC ONG","WH","OM-CITADINES","OM-SCR","SHANG MAIN B","OM-LC","OM-CP"],"CSI":["ADM","OPPAGGR","PLD","CSI-B","PLD-NP","PLD - SP","OPPRE","QC","RMD","RMDS","SLMKTG"]};
+const USERS={"po.abc":{password:"abc2026",company:"ABC",name:"ABC Process Owner"},"po.psc":{password:"psc2026",company:"PSC",name:"PSC Process Owner"},"po.csi":{password:"csi2026",company:"CSI",name:"CSI Process Owner"},"admin":{password:"admin2026",company:"ALL",name:"Administrator"}};
+
+const SEED={"ABC":{"departments":{"ABC":{"Dec 8 - Jan 4":{"reg":2273.77,"ot":73.13,"pct":0.032162},"Jan 5 - Jan 18":{"reg":1593.62,"ot":205.0,"pct":0.128638},"Jan 19 - Feb 2":{"reg":1787.97,"ot":121.13,"pct":0.067747},"Feb 3 - Feb 17":{"reg":1585.25,"ot":123.52,"pct":0.077918},"Feb 18 - Mar 2":{"reg":1423.68,"ot":164.04,"pct":0.115223},"Mar 3 - Mar 17":{"reg":1671.54,"ot":143.15,"pct":0.08564},"Mar 18 - Mar 26":{"reg":861.08,"ot":167.08,"pct":0.194035},"Mar 27 - Apr 19":{"reg":1852.41,"ot":116.05,"pct":0.062648}},"FAD":{"Dec 8 - Jan 4":{"reg":365.52,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":257.39,"ot":24.59,"pct":0.095536},"Jan 19 - Feb 2":{"reg":285.47,"ot":23.91,"pct":0.083757},"Feb 3 - Feb 17":{"reg":259.03,"ot":24.65,"pct":0.095163},"Feb 18 - Mar 2":{"reg":138.1,"ot":13.72,"pct":0.099348},"Mar 3 - Mar 17":{"reg":190.33,"ot":15.08,"pct":0.079231},"Mar 18 - Mar 26":{"reg":104.13,"ot":11.65,"pct":0.111879},"Mar 27 - Apr 19":{"reg":226.06,"ot":20.31,"pct":0.089843}}},"costcenters":{"ABC-ADMIN":{"Dec 8 - Jan 4":{"reg":139.5,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":96.0,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":104.0,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":96.0,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":87.25,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":104.75,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":56.75,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":121.25,"ot":0.0,"pct":0.0}},"ABC-BLOCK":{"Dec 8 - Jan 4":{"reg":730.1,"ot":15.29,"pct":0.020942},"Jan 5 - Jan 18":{"reg":619.88,"ot":93.72,"pct":0.151191},"Jan 19 - Feb 2":{"reg":701.76,"ot":71.74,"pct":0.102229},"Feb 3 - Feb 17":{"reg":532.3,"ot":105.2,"pct":0.197633},"Feb 18 - Mar 2":{"reg":557.72,"ot":54.82,"pct":0.098293},"Mar 3 - Mar 17":{"reg":669.64,"ot":82.69,"pct":0.123484},"Mar 18 - Mar 26":{"reg":325.59,"ot":78.33,"pct":0.240579},"Mar 27 - Apr 19":{"reg":706.41,"ot":66.58,"pct":0.094251}},"ABC-EAM":{"Dec 8 - Jan 4":{"reg":250.98,"ot":7.43,"pct":0.029604},"Jan 5 - Jan 18":{"reg":1036.55,"ot":15.11,"pct":0.014577},"Jan 19 - Feb 2":{"reg":188.45,"ot":22.95,"pct":0.121783},"Feb 3 - Feb 17":{"reg":173.15,"ot":20.4,"pct":0.117817},"Feb 18 - Mar 2":{"reg":155.02,"ot":18.57,"pct":0.119791},"Mar 3 - Mar 17":{"reg":192.01,"ot":22.99,"pct":0.119733},"Mar 18 - Mar 26":{"reg":105.27,"ot":20.7,"pct":0.196637},"Mar 27 - Apr 19":{"reg":206.73,"ot":23.03,"pct":0.111401}},"ABC-PROD":{"Dec 8 - Jan 4":{"reg":139.2,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":95.47,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":99.22,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":96.0,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":84.68,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":0.0,"ot":0.0,"pct":0},"Mar 18 - Mar 26":{"reg":0.0,"ot":0.0,"pct":0},"Mar 27 - Apr 19":{"reg":121.88,"ot":4.6,"pct":0.037742}},"ABC-QA/C":{"Dec 8 - Jan 4":{"reg":108.25,"ot":39.78,"pct":0.367483},"Jan 5 - Jan 18":{"reg":94.05,"ot":26.95,"pct":0.28655},"Jan 19 - Feb 2":{"reg":103.94,"ot":3.85,"pct":0.037041},"Feb 3 - Feb 17":{"reg":96.0,"ot":5.04,"pct":0.0525},"Feb 18 - Mar 2":{"reg":87.12,"ot":42.2,"pct":0.484389},"Mar 3 - Mar 17":{"reg":104.07,"ot":7.88,"pct":0.075718},"Mar 18 - Mar 26":{"reg":56.71,"ot":33.93,"pct":0.598307},"Mar 27 - Apr 19":{"reg":121.88,"ot":4.6,"pct":0.047367}},"ABC-SAM":{"Dec 8 - Jan 4":{"reg":643.92,"ot":3.58,"pct":0.00556},"Jan 5 - Jan 18":{"reg":444.91,"ot":15.16,"pct":0.034074},"Jan 19 - Feb 2":{"reg":487.86,"ot":6.46,"pct":0.013242},"Feb 3 - Feb 17":{"reg":410.73,"ot":4.13,"pct":0.010055},"Feb 18 - Mar 2":{"reg":365.83,"ot":9.72,"pct":0.02657},"Mar 3 - Mar 17":{"reg":497.77,"ot":9.91,"pct":0.019909},"Mar 18 - Mar 26":{"reg":262.13,"ot":4.28,"pct":0.016328},"Mar 27 - Apr 19":{"reg":240.25,"ot":11.38,"pct":0.088697}},"ABC-WAL":{"Dec 8 - Jan 4":{"reg":135.52,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":86.73,"ot":39.08,"pct":0.450594},"Jan 19 - Feb 2":{"reg":102.74,"ot":10.29,"pct":0.100156},"Feb 3 - Feb 17":{"reg":93.89,"ot":12.49,"pct":0.133028},"Feb 18 - Mar 2":{"reg":86.06,"ot":38.72,"pct":0.449919},"Mar 3 - Mar 17":{"reg":103.3,"ot":16.82,"pct":0.162827},"Mar 18 - Mar 26":{"reg":54.63,"ot":19.84,"pct":0.36317},"Mar 27 - Apr 19":{"reg":117.93,"ot":10.46,"pct":0.0}}}},"PSC":{"departments":{"AMD":{"Dec 8 - Jan 4":{"reg":487.35,"ot":3.48,"pct":0.007141},"Jan 5 - Jan 18":{"reg":349.31,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":384.65,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":349.75,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":279.45,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":382.07,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":210.0,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":443.72,"ot":0.0,"pct":0.0}},"ARKI":{"Dec 8 - Jan 4":{"reg":701.28,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":499.73,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":560.2,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":509.68,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":405.62,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":568.43,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":302.88,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":674.46,"ot":0.0,"pct":0.0}},"FAD":{"Dec 8 - Jan 4":{"reg":2202.45,"ot":37.11,"pct":0.016849},"Jan 5 - Jan 18":{"reg":1622.25,"ot":8.94,"pct":0.005511},"Jan 19 - Feb 2":{"reg":1779.41,"ot":42.9,"pct":0.024109},"Feb 3 - Feb 17":{"reg":1614.06,"ot":21.49,"pct":0.013314},"Feb 18 - Mar 2":{"reg":1307.76,"ot":16.48,"pct":0.012602},"Mar 3 - Mar 17":{"reg":1784.92,"ot":6.26,"pct":0.003507},"Mar 18 - Mar 26":{"reg":974.92,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":2094.41,"ot":0.0,"pct":0.0}},"HRD":{"Dec 8 - Jan 4":{"reg":2086.5,"ot":33.64,"pct":0.016123},"Jan 5 - Jan 18":{"reg":1456.75,"ot":32.38,"pct":0.022228},"Jan 19 - Feb 2":{"reg":1717.34,"ot":11.75,"pct":0.006842},"Feb 3 - Feb 17":{"reg":1576.67,"ot":9.7,"pct":0.006152},"Feb 18 - Mar 2":{"reg":1271.58,"ot":22.48,"pct":0.017679},"Mar 3 - Mar 17":{"reg":1618.91,"ot":1.0,"pct":0.000618},"Mar 18 - Mar 26":{"reg":887.38,"ot":22.62,"pct":0.025491},"Mar 27 - Apr 19":{"reg":1914.04,"ot":22.18,"pct":0.011588}},"ITD":{"Dec 8 - Jan 4":{"reg":2466.31,"ot":325.15,"pct":0.131837},"Jan 5 - Jan 18":{"reg":1808.39,"ot":130.79,"pct":0.072324},"Jan 19 - Feb 2":{"reg":1973.56,"ot":131.95,"pct":0.066859},"Feb 3 - Feb 17":{"reg":1815.95,"ot":172.9,"pct":0.095212},"Feb 18 - Mar 2":{"reg":1454.41,"ot":170.95,"pct":0.117539},"Mar 3 - Mar 17":{"reg":2011.14,"ot":211.24,"pct":0.105035},"Mar 18 - Mar 26":{"reg":1101.37,"ot":186.72,"pct":0.169534},"Mar 27 - Apr 19":{"reg":2622.46,"ot":240.04,"pct":0.091532}},"OMD-ED":{"Dec 8 - Jan 4":{"reg":1660.88,"ot":443.51,"pct":0.267033},"Jan 5 - Jan 18":{"reg":1211.42,"ot":89.33,"pct":0.07374},"Jan 19 - Feb 2":{"reg":1320.43,"ot":150.61,"pct":0.114061},"Feb 3 - Feb 17":{"reg":1206.82,"ot":84.08,"pct":0.069671},"Feb 18 - Mar 2":{"reg":1000.84,"ot":213.81,"pct":0.213631},"Mar 3 - Mar 17":{"reg":1324.76,"ot":183.4,"pct":0.13844},"Mar 18 - Mar 26":{"reg":715.11,"ot":214.52,"pct":0.299982},"Mar 27 - Apr 19":{"reg":1550.67,"ot":142.79,"pct":0.092083}},"OMD-FW":{"Dec 8 - Jan 4":{"reg":379.23,"ot":73.14,"pct":0.192864},"Jan 5 - Jan 18":{"reg":277.81,"ot":68.86,"pct":0.247867},"Jan 19 - Feb 2":{"reg":311.14,"ot":65.01,"pct":0.208941},"Feb 3 - Feb 17":{"reg":283.74,"ot":80.04,"pct":0.282089},"Feb 18 - Mar 2":{"reg":162.2,"ot":43.74,"pct":0.269667},"Mar 3 - Mar 17":{"reg":207.08,"ot":77.28,"pct":0.373189},"Mar 18 - Mar 26":{"reg":112.13,"ot":72.32,"pct":0.644966},"Mar 27 - Apr 19":{"reg":242.16,"ot":115.35,"pct":0.476338}},"OMD-MD":{"Dec 8 - Jan 4":{"reg":784.29,"ot":223.9,"pct":0.285481},"Jan 5 - Jan 18":{"reg":563.74,"ot":64.32,"pct":0.114095},"Jan 19 - Feb 2":{"reg":613.22,"ot":128.25,"pct":0.209142},"Feb 3 - Feb 17":{"reg":559.49,"ot":113.25,"pct":0.202416},"Feb 18 - Mar 2":{"reg":477.97,"ot":152.5,"pct":0.319058},"Mar 3 - Mar 17":{"reg":618.7,"ot":149.08,"pct":0.240957},"Mar 18 - Mar 26":{"reg":322.96,"ot":129.02,"pct":0.399492},"Mar 27 - Apr 19":{"reg":722.08,"ot":165.36,"pct":0.229005}},"OMD-OPS":{"Dec 8 - Jan 4":{"reg":10335.25,"ot":2055.46,"pct":0.198879},"Jan 5 - Jan 18":{"reg":7289.62,"ot":721.61,"pct":0.098991},"Jan 19 - Feb 2":{"reg":8023.59,"ot":945.14,"pct":0.117795},"Feb 3 - Feb 17":{"reg":7221.11,"ot":1048.62,"pct":0.145216},"Feb 18 - Mar 2":{"reg":5682.19,"ot":1123.6,"pct":0.197741},"Mar 3 - Mar 17":{"reg":7135.05,"ot":1403.5,"pct":0.196705},"Mar 18 - Mar 26":{"reg":3917.14,"ot":1070.93,"pct":0.273396},"Mar 27 - Apr 19":{"reg":8408.0,"ot":1351.52,"pct":0.160742}},"PEG":{"Dec 8 - Jan 4":{"reg":1202.53,"ot":158.62,"pct":0.131905},"Jan 5 - Jan 18":{"reg":930.96,"ot":61.06,"pct":0.065588},"Jan 19 - Feb 2":{"reg":1005.29,"ot":60.62,"pct":0.060301},"Feb 3 - Feb 17":{"reg":928.03,"ot":86.06,"pct":0.092734},"Feb 18 - Mar 2":{"reg":758.91,"ot":63.85,"pct":0.084134},"Mar 3 - Mar 17":{"reg":1044.66,"ot":90.27,"pct":0.086411},"Mar 18 - Mar 26":{"reg":561.74,"ot":84.97,"pct":0.151262},"Mar 27 - Apr 19":{"reg":1197.02,"ot":109.53,"pct":0.091502}},"SCM":{"Dec 8 - Jan 4":{"reg":2379.27,"ot":25.72,"pct":0.01081},"Jan 5 - Jan 18":{"reg":1724.42,"ot":16.1,"pct":0.009336},"Jan 19 - Feb 2":{"reg":1898.43,"ot":37.18,"pct":0.019585},"Feb 3 - Feb 17":{"reg":1741.99,"ot":134.44,"pct":0.077176},"Feb 18 - Mar 2":{"reg":1388.57,"ot":61.7,"pct":0.044434},"Mar 3 - Mar 17":{"reg":1900.98,"ot":34.6,"pct":0.018201},"Mar 18 - Mar 26":{"reg":1037.41,"ot":11.92,"pct":0.01149},"Mar 27 - Apr 19":{"reg":2017.04,"ot":51.25,"pct":0.025409}},"SID":{"Dec 8 - Jan 4":{"reg":575.38,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":424.28,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":462.22,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":420.56,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":338.26,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":462.23,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":254.89,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":549.05,"ot":0.0,"pct":0.0}},"SKILLS COOP":{"Dec 8 - Jan 4":{"reg":282.27,"ot":9.39,"pct":0.033266},"Jan 5 - Jan 18":{"reg":169.79,"ot":18.32,"pct":0.107898},"Jan 19 - Feb 2":{"reg":188.25,"ot":17.03,"pct":0.090465},"Feb 3 - Feb 17":{"reg":173.02,"ot":26.88,"pct":0.155358},"Feb 18 - Mar 2":{"reg":139.42,"ot":25.6,"pct":0.183618},"Mar 3 - Mar 17":{"reg":190.94,"ot":32.87,"pct":0.172148},"Mar 18 - Mar 26":{"reg":104.6,"ot":23.2,"pct":0.221797},"Mar 27 - Apr 19":{"reg":224.11,"ot":24.64,"pct":0.109946}},"SMD":{"Dec 8 - Jan 4":{"reg":3398.15,"ot":839.24,"pct":0.24697},"Jan 5 - Jan 18":{"reg":2435.41,"ot":241.38,"pct":0.099113},"Jan 19 - Feb 2":{"reg":2712.98,"ot":270.4,"pct":0.099669},"Feb 3 - Feb 17":{"reg":2490.17,"ot":296.44,"pct":0.119044},"Feb 18 - Mar 2":{"reg":1986.77,"ot":429.31,"pct":0.216084},"Mar 3 - Mar 17":{"reg":2538.46,"ot":439.96,"pct":0.173318},"Mar 18 - Mar 26":{"reg":1372.93,"ot":330.02,"pct":0.240376},"Mar 27 - Apr 19":{"reg":2940.14,"ot":479.81,"pct":0.163193}}},"costcenters":{"A/R SLAB PLA":{"Dec 8 - Jan 4":{"reg":132.87,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":86.53,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":104.66,"ot":7.05,"pct":0.067361},"Feb 3 - Feb 17":{"reg":88.44,"ot":14.0,"pct":0.158299},"Feb 18 - Mar 2":{"reg":693.77,"ot":7.0,"pct":0.01009},"Mar 3 - Mar 17":{"reg":97.09,"ot":14.0,"pct":0.144196},"Mar 18 - Mar 26":{"reg":51.88,"ot":14.0,"pct":0.269854},"Mar 27 - Apr 19":{"reg":121.87,"ot":8.95,"pct":0.073439}},"AMD-AM":{"Dec 8 - Jan 4":{"reg":487.35,"ot":3.48,"pct":0.007141},"Jan 5 - Jan 18":{"reg":349.31,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":94.3,"ot":8.95,"pct":0.09491},"Feb 3 - Feb 17":{"reg":349.75,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":69.6,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":382.07,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":210.0,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":443.72,"ot":0.0,"pct":0.0}},"ARCHITECTURE":{"Dec 8 - Jan 4":{"reg":701.28,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":499.73,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":384.65,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":509.68,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":257.86,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":568.43,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":302.88,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":674.46,"ot":0.0,"pct":0.0}},"BADIANFISHPN":{"Dec 8 - Jan 4":{"reg":139.2,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":96.0,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":104.67,"ot":9.5,"pct":0.090761},"Feb 3 - Feb 17":{"reg":96.0,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":87.25,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":104.75,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":56.75,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":122.0,"ot":0.0,"pct":0.0}},"BDOCFT":{"Dec 8 - Jan 4":{"reg":1767.09,"ot":601.43,"pct":0.340351},"Jan 5 - Jan 18":{"reg":1351.01,"ot":180.98,"pct":0.133959},"Jan 19 - Feb 2":{"reg":1022.41,"ot":46.94,"pct":0.045911},"Feb 3 - Feb 17":{"reg":1282.21,"ot":295.09,"pct":0.230142},"Feb 18 - Mar 2":{"reg":345.88,"ot":243.87,"pct":0.705071},"Mar 3 - Mar 17":{"reg":1340.54,"ot":431.55,"pct":0.321923},"Mar 18 - Mar 26":{"reg":711.03,"ot":336.24,"pct":0.472891},"Mar 27 - Apr 19":{"reg":1529.43,"ot":624.86,"pct":0.408557}},"BUNKHOUSE":{"Dec 8 - Jan 4":{"reg":122.5,"ot":9.25,"pct":0.07551},"Jan 5 - Jan 18":{"reg":87.5,"ot":3.62,"pct":0.041371},"Jan 19 - Feb 2":{"reg":96.25,"ot":7.25,"pct":0.075325},"Feb 3 - Feb 17":{"reg":87.5,"ot":9.5,"pct":0.108571},"Feb 18 - Mar 2":{"reg":505.27,"ot":4.25,"pct":0.008411},"Mar 3 - Mar 17":{"reg":96.25,"ot":12.5,"pct":0.12987},"Mar 18 - Mar 26":{"reg":52.5,"ot":9.5,"pct":0.180952},"Mar 27 - Apr 19":{"reg":113.75,"ot":10.5,"pct":0.092308}},"CIG-OD":{"Dec 8 - Jan 4":{"reg":104.24,"ot":12.71,"pct":0.12193},"Jan 5 - Jan 18":{"reg":87.23,"ot":6.64,"pct":0.076121},"Jan 19 - Feb 2":{"reg":96.25,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":85.46,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":1002.67,"ot":1.8,"pct":0.001795},"Mar 3 - Mar 17":{"reg":94.18,"ot":10.0,"pct":0.10618},"Mar 18 - Mar 26":{"reg":51.78,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":112.44,"ot":0.0,"pct":0.0}},"CIRCA":{"Dec 8 - Jan 4":{"reg":139.5,"ot":21.82,"pct":0.156416},"Jan 5 - Jan 18":{"reg":96.0,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":297.67,"ot":9.45,"pct":0.031747},"Feb 3 - Feb 17":{"reg":95.78,"ot":6.95,"pct":0.072562},"Feb 18 - Mar 2":{"reg":1170.68,"ot":10.58,"pct":0.009037},"Mar 3 - Mar 17":{"reg":104.7,"ot":9.97,"pct":0.095224},"Mar 18 - Mar 26":{"reg":56.75,"ot":7.52,"pct":0.132511},"Mar 27 - Apr 19":{"reg":113.25,"ot":14.73,"pct":0.130066}},"CSI SY - B":{"Dec 8 - Jan 4":{"reg":279.0,"ot":48.5,"pct":0.173835},"Jan 5 - Jan 18":{"reg":192.0,"ot":12.0,"pct":0.0625},"Jan 19 - Feb 2":{"reg":100.95,"ot":4.15,"pct":0.041109},"Feb 3 - Feb 17":{"reg":192.0,"ot":12.0,"pct":0.0625},"Feb 18 - Mar 2":{"reg":155.34,"ot":24.0,"pct":0.1545},"Mar 3 - Mar 17":{"reg":204.75,"ot":8.55,"pct":0.041758},"Mar 18 - Mar 26":{"reg":113.5,"ot":4.0,"pct":0.035242},"Mar 27 - Apr 19":{"reg":244.0,"ot":18.5,"pct":0.07582}},"E.D- REPAIR":{"Dec 8 - Jan 4":{"reg":1033.38,"ot":284.31,"pct":0.275126},"Jan 5 - Jan 18":{"reg":748.42,"ot":66.98,"pct":0.089495},"Jan 19 - Feb 2":{"reg":104.11,"ot":3.25,"pct":0.031217},"Feb 3 - Feb 17":{"reg":743.82,"ot":63.5,"pct":0.08537},"Feb 18 - Mar 2":{"reg":556.47,"ot":133.11,"pct":0.239204},"Mar 3 - Mar 17":{"reg":818.87,"ot":120.4,"pct":0.147032},"Mar 18 - Mar 26":{"reg":439.86,"ot":127.27,"pct":0.289342},"Mar 27 - Apr 19":{"reg":957.17,"ot":108.12,"pct":0.112958}},"E.D.-LOGISTI":{"Dec 8 - Jan 4":{"reg":513.75,"ot":141.86,"pct":0.276127},"Jan 5 - Jan 18":{"reg":375.5,"ot":14.5,"pct":0.038615},"Jan 19 - Feb 2":{"reg":96.25,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":375.5,"ot":16.0,"pct":0.04261},"Feb 18 - Mar 2":{"reg":70.0,"ot":75.22,"pct":1.074571},"Mar 3 - Mar 17":{"reg":409.64,"ot":55.59,"pct":0.135705},"Mar 18 - Mar 26":{"reg":222.75,"ot":84.92,"pct":0.381235},"Mar 27 - Apr 19":{"reg":479.75,"ot":32.17,"pct":0.067056}},"ED COMM":{"Dec 8 - Jan 4":{"reg":266.13,"ot":28.5,"pct":0.107091},"Jan 5 - Jan 18":{"reg":192.0,"ot":14.0,"pct":0.072917},"Jan 19 - Feb 2":{"reg":462.22,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":189.33,"ot":13.23,"pct":0.069878},"Feb 18 - Mar 2":{"reg":87.07,"ot":23.67,"pct":0.27185},"Mar 3 - Mar 17":{"reg":209.5,"ot":15.42,"pct":0.073604},"Mar 18 - Mar 26":{"reg":109.25,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":244.0,"ot":21.75,"pct":0.089139}},"ED RENTALS":{"Dec 8 - Jan 4":{"reg":113.75,"ot":17.35,"pct":0.152527},"Jan 5 - Jan 18":{"reg":87.5,"ot":7.85,"pct":0.089714},"Jan 19 - Feb 2":{"reg":96.04,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":87.5,"ot":4.58,"pct":0.052343},"Feb 18 - Mar 2":{"reg":235.75,"ot":5.48,"pct":0.023245},"Mar 3 - Mar 17":{"reg":96.25,"ot":7.41,"pct":0.076987},"Mar 18 - Mar 26":{"reg":52.5,"ot":2.33,"pct":0.044381},"Mar 27 - Apr 19":{"reg":113.75,"ot":2.5,"pct":0.021978}},"ELECTRO-MECH":{"Dec 8 - Jan 4":{"reg":2239.22,"ot":243.18,"pct":0.1086},"Jan 5 - Jan 18":{"reg":1551.88,"ot":101.28,"pct":0.065263},"Jan 19 - Feb 2":{"reg":192.38,"ot":12.0,"pct":0.062377},"Feb 3 - Feb 17":{"reg":1598.26,"ot":157.59,"pct":0.098601},"Feb 18 - Mar 2":{"reg":1170.68,"ot":125.47,"pct":0.107177},"Mar 3 - Mar 17":{"reg":1517.83,"ot":107.0,"pct":0.070495},"Mar 18 - Mar 26":{"reg":430.31,"ot":40.07,"pct":0.093119},"Mar 27 - Apr 19":{"reg":952.19,"ot":49.27,"pct":0.051744}},"ENGINEERING":{"Dec 8 - Jan 4":{"reg":1092.85,"ot":152.62,"pct":0.139653},"Jan 5 - Jan 18":{"reg":843.46,"ot":49.28,"pct":0.058426},"Jan 19 - Feb 2":{"reg":1697.43,"ot":9.18,"pct":0.005408},"Feb 3 - Feb 17":{"reg":840.53,"ot":74.06,"pct":0.088111},"Feb 18 - Mar 2":{"reg":688.91,"ot":51.85,"pct":0.075264},"Mar 3 - Mar 17":{"reg":948.41,"ot":80.27,"pct":0.084636},"Mar 18 - Mar 26":{"reg":509.24,"ot":74.07,"pct":0.145452},"Mar 27 - Apr 19":{"reg":1083.27,"ot":99.53,"pct":0.091879}},"FAD-CNC":{"Dec 8 - Jan 4":{"reg":235.72,"ot":10.33,"pct":0.043823},"Jan 5 - Jan 18":{"reg":161.07,"ot":4.32,"pct":0.026821},"Jan 19 - Feb 2":{"reg":96.25,"ot":8.0,"pct":0.083117},"Feb 3 - Feb 17":{"reg":160.85,"ot":1.83,"pct":0.011377},"Feb 18 - Mar 2":{"reg":756.58,"ot":5.15,"pct":0.006807},"Mar 3 - Mar 17":{"reg":174.94,"ot":6.26,"pct":0.035784},"Mar 18 - Mar 26":{"reg":99.35,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":216.11,"ot":0.0,"pct":0.0}},"FAD-FPA":{"Dec 8 - Jan 4":{"reg":363.53,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":261.61,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":95.89,"ot":3.94,"pct":0.041089},"Feb 3 - Feb 17":{"reg":259.41,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":1231.32,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":285.55,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":156.55,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":340.03,"ot":0.0,"pct":0.0}},"FAD-GA":{"Dec 8 - Jan 4":{"reg":1129.57,"ot":23.8,"pct":0.02107},"Jan 5 - Jan 18":{"reg":866.09,"ot":3.25,"pct":0.003752},"Jan 19 - Feb 2":{"reg":560.2,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":859.06,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":1170.68,"ot":1.82,"pct":0.001555},"Mar 3 - Mar 17":{"reg":949.71,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":514.75,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":1117.49,"ot":0.0,"pct":0.0}},"FAD-PR":{"Dec 8 - Jan 4":{"reg":351.13,"ot":2.98,"pct":0.008487},"Jan 5 - Jan 18":{"reg":245.98,"ot":1.37,"pct":0.00557},"Jan 19 - Feb 2":{"reg":1505.48,"ot":210.08,"pct":0.139544},"Feb 3 - Feb 17":{"reg":247.24,"ot":19.66,"pct":0.079518},"Feb 18 - Mar 2":{"reg":67.93,"ot":9.51,"pct":0.139997},"Mar 3 - Mar 17":{"reg":278.47,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":151.77,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":307.03,"ot":0.0,"pct":0.0}},"FAD-TD":{"Dec 8 - Jan 4":{"reg":122.5,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":87.5,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":104.6,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":87.5,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":1170.68,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":96.25,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":52.5,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":113.75,"ot":0.0,"pct":0.0}},"FORMWORKS":{"Dec 8 - Jan 4":{"reg":121.73,"ot":12.85,"pct":0.105561},"Jan 5 - Jan 18":{"reg":94.56,"ot":4.02,"pct":0.042513},"Jan 19 - Feb 2":{"reg":95.05,"ot":4.25,"pct":0.044713},"Feb 3 - Feb 17":{"reg":94.66,"ot":4.02,"pct":0.042468},"Feb 18 - Mar 2":{"reg":209.42,"ot":6.38,"pct":0.030465},"Mar 3 - Mar 17":{"reg":104.21,"ot":5.32,"pct":0.051051},"Mar 18 - Mar 26":{"reg":55.88,"ot":3.23,"pct":0.057802},"Mar 27 - Apr 19":{"reg":120.89,"ot":10.54,"pct":0.087187}},"HRD-EE":{"Dec 8 - Jan 4":{"reg":117.97,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":86.29,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":1738.24,"ot":122.5,"pct":0.070474},"Feb 3 - Feb 17":{"reg":87.5,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":421.61,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":92.1,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":50.25,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":111.28,"ot":0.0,"pct":0.0}},"HRD-LP":{"Dec 8 - Jan 4":{"reg":122.5,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":0.0,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":104.73,"ot":1.33,"pct":0.012699},"Feb 3 - Feb 17":{"reg":87.33,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":506.63,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":93.88,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":51.88,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":111.78,"ot":0.0,"pct":0.0}},"HRD-OHS":{"Dec 8 - Jan 4":{"reg":834.85,"ot":24.31,"pct":0.029119},"Jan 5 - Jan 18":{"reg":610.9,"ot":13.63,"pct":0.022311},"Jan 19 - Feb 2":{"reg":209.5,"ot":12.0,"pct":0.057279},"Feb 3 - Feb 17":{"reg":620.6,"ot":2.55,"pct":0.004109},"Feb 18 - Mar 2":{"reg":1170.68,"ot":7.1,"pct":0.006065},"Mar 3 - Mar 17":{"reg":577.15,"ot":1.0,"pct":0.001733},"Mar 18 - Mar 26":{"reg":314.11,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":679.3,"ot":3.25,"pct":0.004784}},"HRD-RNF":{"Dec 8 - Jan 4":{"reg":452.87,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":337.56,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":815.18,"ot":117.97,"pct":0.144717},"Feb 3 - Feb 17":{"reg":347.86,"ot":3.65,"pct":0.010493},"Feb 18 - Mar 2":{"reg":505.27,"ot":1.33,"pct":0.002632},"Mar 3 - Mar 17":{"reg":379.7,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":210.0,"ot":2.0,"pct":0.009524},"Mar 27 - Apr 19":{"reg":449.23,"ot":0.0,"pct":0.0}},"HRD-TA":{"Dec 8 - Jan 4":{"reg":120.5,"ot":2.95,"pct":0.024481},"Jan 5 - Jan 18":{"reg":86.58,"ot":8.5,"pct":0.098175},"Jan 19 - Feb 2":{"reg":409.0,"ot":25.33,"pct":0.061932},"Feb 3 - Feb 17":{"reg":86.48,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":1002.67,"ot":2.0,"pct":0.001995},"Mar 3 - Mar 17":{"reg":94.7,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":52.17,"ot":10.75,"pct":0.206057},"Mar 27 - Apr 19":{"reg":113.51,"ot":0.0,"pct":0.0}},"HRD-TR":{"Dec 8 - Jan 4":{"reg":317.01,"ot":5.33,"pct":0.016813},"Jan 5 - Jan 18":{"reg":256.89,"ot":7.25,"pct":0.028222},"Jan 19 - Feb 2":{"reg":209.5,"ot":16.48,"pct":0.078663},"Feb 3 - Feb 17":{"reg":259.6,"ot":1.0,"pct":0.003852},"Feb 18 - Mar 2":{"reg":278.59,"ot":12.05,"pct":0.043254},"Mar 3 - Mar 17":{"reg":285.13,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":156.47,"ot":4.52,"pct":0.028887},"Mar 27 - Apr 19":{"reg":338.26,"ot":11.73,"pct":0.034677}},"ITD":{"Dec 8 - Jan 4":{"reg":1312.34,"ot":167.54,"pct":0.127665},"Jan 5 - Jan 18":{"reg":936.32,"ot":52.66,"pct":0.056241},"Jan 19 - Feb 2":{"reg":181.6,"ot":6.79,"pct":0.03739},"Feb 3 - Feb 17":{"reg":943.53,"ot":93.23,"pct":0.09881},"Feb 18 - Mar 2":{"reg":756.58,"ot":83.93,"pct":0.110933},"Mar 3 - Mar 17":{"reg":1051.5,"ot":90.04,"pct":0.08563},"Mar 18 - Mar 26":{"reg":577.16,"ot":103.03,"pct":0.178512},"Mar 27 - Apr 19":{"reg":1487.14,"ot":139.56,"pct":0.093845}},"ITD-AMS":{"Dec 8 - Jan 4":{"reg":113.75,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":87.5,"ot":4.9,"pct":0.056},"Jan 19 - Feb 2":{"reg":909.04,"ot":48.61,"pct":0.053474},"Feb 3 - Feb 17":{"reg":87.24,"ot":4.05,"pct":0.046424},"Feb 18 - Mar 2":{"reg":688.91,"ot":8.35,"pct":0.012121},"Mar 3 - Mar 17":{"reg":95.58,"ot":9.75,"pct":0.102009},"Mar 18 - Mar 26":{"reg":52.5,"ot":4.05,"pct":0.077143},"Mar 27 - Apr 19":{"reg":113.21,"ot":12.0,"pct":0.105998}},"ITD-APPS":{"Dec 8 - Jan 4":{"reg":484.98,"ot":64.17,"pct":0.132315},"Jan 5 - Jan 18":{"reg":349.6,"ot":33.91,"pct":0.096997},"Jan 19 - Feb 2":{"reg":277.73,"ot":25.61,"pct":0.092212},"Feb 3 - Feb 17":{"reg":349.77,"ot":39.62,"pct":0.113274},"Feb 18 - Mar 2":{"reg":228.67,"ot":40.46,"pct":0.176936},"Mar 3 - Mar 17":{"reg":384.93,"ot":61.33,"pct":0.159328},"Mar 18 - Mar 26":{"reg":210.0,"ot":42.74,"pct":0.203524},"Mar 27 - Apr 19":{"reg":454.7,"ot":52.48,"pct":0.115417}},"ITD-INFRA":{"Dec 8 - Jan 4":{"reg":241.0,"ot":15.34,"pct":0.063651},"Jan 5 - Jan 18":{"reg":174.97,"ot":12.0,"pct":0.068583},"Jan 19 - Feb 2":{"reg":281.88,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":174.95,"ot":12.0,"pct":0.068591},"Feb 18 - Mar 2":{"reg":627.44,"ot":12.17,"pct":0.019396},"Mar 3 - Mar 17":{"reg":192.45,"ot":16.12,"pct":0.083762},"Mar 18 - Mar 26":{"reg":104.93,"ot":11.93,"pct":0.113695},"Mar 27 - Apr 19":{"reg":227.47,"ot":12.0,"pct":0.052754}},"ITD-OPS":{"Dec 8 - Jan 4":{"reg":210.0,"ot":65.38,"pct":0.311333},"Jan 5 - Jan 18":{"reg":172.77,"ot":20.68,"pct":0.119697},"Jan 19 - Feb 2":{"reg":941.95,"ot":10.5,"pct":0.011147},"Feb 3 - Feb 17":{"reg":175.0,"ot":24.0,"pct":0.137143},"Feb 18 - Mar 2":{"reg":174.5,"ot":24.24,"pct":0.138911},"Mar 3 - Mar 17":{"reg":192.5,"ot":24.0,"pct":0.124675},"Mar 18 - Mar 26":{"reg":105.0,"ot":24.97,"pct":0.23781},"Mar 27 - Apr 19":{"reg":227.5,"ot":24.0,"pct":0.105495}},"LP NEGROS":{"Dec 8 - Jan 4":{"reg":779.18,"ot":97.98,"pct":0.125748},"Jan 5 - Jan 18":{"reg":506.2,"ot":36.97,"pct":0.073034},"Jan 19 - Feb 2":{"reg":208.18,"ot":46.97,"pct":0.225622},"Feb 3 - Feb 17":{"reg":467.74,"ot":59.9,"pct":0.128063},"Feb 18 - Mar 2":{"reg":756.58,"ot":49.84,"pct":0.065875},"Mar 3 - Mar 17":{"reg":300.98,"ot":61.58,"pct":0.204598},"Mar 18 - Mar 26":{"reg":163.65,"ot":34.2,"pct":0.208983},"Mar 27 - Apr 19":{"reg":345.01,"ot":19.0,"pct":0.055071}},"MD":{"Dec 8 - Jan 4":{"reg":923.79,"ot":283.7,"pct":0.307104},"Jan 5 - Jan 18":{"reg":659.74,"ot":76.32,"pct":0.115682},"Jan 19 - Feb 2":{"reg":287.15,"ot":1.0,"pct":0.003483},"Feb 3 - Feb 17":{"reg":655.49,"ot":147.46,"pct":0.224961},"Feb 18 - Mar 2":{"reg":693.77,"ot":164.5,"pct":0.23711},"Mar 3 - Mar 17":{"reg":722.75,"ot":177.73,"pct":0.245908},"Mar 18 - Mar 26":{"reg":379.71,"ot":141.02,"pct":0.371389},"Mar 27 - Apr 19":{"reg":844.08,"ot":210.25,"pct":0.249088}},"MED":{"Dec 8 - Jan 4":{"reg":139.5,"ot":19.24,"pct":0.137921},"Jan 5 - Jan 18":{"reg":96.0,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":94.96,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":96.0,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":505.27,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":104.75,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":56.75,"ot":12.25,"pct":0.215859},"Mar 27 - Apr 19":{"reg":126.5,"ot":17.66,"pct":0.139605}},"MINGLANILLAP":{"Dec 8 - Jan 4":{"reg":135.49,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":91.88,"ot":2.52,"pct":0.027427},"Jan 19 - Feb 2":{"reg":104.75,"ot":9.0,"pct":0.085919},"Feb 3 - Feb 17":{"reg":91.82,"ot":12.21,"pct":0.132978},"Feb 18 - Mar 2":{"reg":205.66,"ot":12.0,"pct":0.058349},"Mar 3 - Mar 17":{"reg":103.32,"ot":12.0,"pct":0.116144},"Mar 18 - Mar 26":{"reg":55.53,"ot":8.25,"pct":0.148568},"Mar 27 - Apr 19":{"reg":114.36,"ot":4.05,"pct":0.035414}},"OM-LHT":{"Dec 8 - Jan 4":{"reg":266.0,"ot":56.5,"pct":0.212406},"Jan 5 - Jan 18":{"reg":163.22,"ot":61.22,"pct":0.375077},"Jan 19 - Feb 2":{"reg":104.75,"ot":15.0,"pct":0.143198},"Feb 3 - Feb 17":{"reg":179.08,"ot":47.89,"pct":0.267422},"Feb 18 - Mar 2":{"reg":338.26,"ot":41.7,"pct":0.123278},"Mar 3 - Mar 17":{"reg":209.45,"ot":59.73,"pct":0.285175},"Mar 18 - Mar 26":{"reg":113.5,"ot":38.0,"pct":0.334802},"Mar 27 - Apr 19":{"reg":243.26,"ot":12.5,"pct":0.051385}},"OM-PPC 34":{"Dec 8 - Jan 4":{"reg":130.67,"ot":24.95,"pct":0.190939},"Jan 5 - Jan 18":{"reg":96.0,"ot":12.0,"pct":0.125},"Jan 19 - Feb 2":{"reg":104.75,"ot":20.0,"pct":0.190931}},"OM-PPC 36":{"Dec 8 - Jan 4":{"reg":490.83,"ot":230.85,"pct":0.470326},"Jan 5 - Jan 18":{"reg":267.81,"ot":70.5,"pct":0.263246},"Jan 19 - Feb 2":{"reg":104.75,"ot":10.0,"pct":0.095465},"Feb 3 - Feb 17":{"reg":86.0,"ot":28.5,"pct":0.331395},"Feb 18 - Mar 2":{"reg":1002.67,"ot":24.5,"pct":0.024435},"Mar 3 - Mar 17":{"reg":104.47,"ot":36.6,"pct":0.35034},"Mar 18 - Mar 26":{"reg":55.65,"ot":24.55,"pct":0.44115},"Mar 27 - Apr 19":{"reg":111.79,"ot":43.71,"pct":0.391001}},"OM-PPC38":{"Dec 8 - Jan 4":{"reg":618.15,"ot":329.48,"pct":0.53301},"Jan 5 - Jan 18":{"reg":463.85,"ot":53.38,"pct":0.11508},"Jan 19 - Feb 2":{"reg":209.5,"ot":58.01,"pct":0.276897},"Feb 3 - Feb 17":{"reg":355.46,"ot":71.26,"pct":0.200473},"Feb 18 - Mar 2":{"reg":308.32,"ot":119.03,"pct":0.38606},"Mar 3 - Mar 17":{"reg":396.44,"ot":85.5,"pct":0.215669},"Mar 18 - Mar 26":{"reg":275.43,"ot":93.67,"pct":0.340086},"Mar 27 - Apr 19":{"reg":581.13,"ot":71.5,"pct":0.123036}},"OM-SHANG":{"Dec 8 - Jan 4":{"reg":356.97,"ot":76.05,"pct":0.213043},"Jan 5 - Jan 18":{"reg":273.01,"ot":65.84,"pct":0.241163},"Jan 19 - Feb 2":{"reg":199.02,"ot":49.54,"pct":0.24892},"Feb 3 - Feb 17":{"reg":96.0,"ot":12.0,"pct":0.125},"Feb 18 - Mar 2":{"reg":168.08,"ot":12.0,"pct":0.071395},"Mar 3 - Mar 17":{"reg":104.75,"ot":12.91,"pct":0.123246},"Mar 18 - Mar 26":{"reg":56.75,"ot":28.08,"pct":0.494802},"Mar 27 - Apr 19":{"reg":113.17,"ot":34.51,"pct":0.304939}},"OM-T2":{"Dec 8 - Jan 4":{"reg":129.41,"ot":2.0,"pct":0.015455},"Jan 5 - Jan 18":{"reg":86.1,"ot":8.25,"pct":0.095819},"Jan 19 - Feb 2":{"reg":504.16,"ot":72.79,"pct":0.144379},"Feb 3 - Feb 17":{"reg":95.6,"ot":10.69,"pct":0.11182},"Feb 18 - Mar 2":{"reg":140.0,"ot":21.08,"pct":0.150571},"Mar 3 - Mar 17":{"reg":104.7,"ot":27.5,"pct":0.262655},"Mar 18 - Mar 26":{"reg":56.4,"ot":11.0,"pct":0.195035},"Mar 27 - Apr 19":{"reg":122.0,"ot":0.0,"pct":0.0}},"PPC 34 CLIP":{"Dec 8 - Jan 4":{"reg":139.5,"ot":21.71,"pct":0.155627},"Jan 5 - Jan 18":{"reg":96.0,"ot":12.0,"pct":0.125},"Jan 19 - Feb 2":{"reg":408.54,"ot":74.29,"pct":0.181843}},"PSC - PEBS":{"Dec 8 - Jan 4":{"reg":363.67,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":267.81,"ot":3.0,"pct":0.011202},"Jan 19 - Feb 2":{"reg":503.9,"ot":90.57,"pct":0.179738},"Feb 3 - Feb 17":{"reg":273.34,"ot":19.81,"pct":0.072474},"Feb 18 - Mar 2":{"reg":246.7,"ot":15.04,"pct":0.060965},"Mar 3 - Mar 17":{"reg":197.59,"ot":2.75,"pct":0.013918},"Mar 18 - Mar 26":{"reg":107.6,"ot":5.76,"pct":0.053532},"Mar 27 - Apr 19":{"reg":221.38,"ot":14.03,"pct":0.063375}},"PSC MNL":{"Dec 8 - Jan 4":{"reg":122.5,"ot":1.0,"pct":0.008163},"Jan 5 - Jan 18":{"reg":87.5,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":275.67,"ot":22.53,"pct":0.081728},"Feb 3 - Feb 17":{"reg":83.5,"ot":18.0,"pct":0.215569},"Feb 18 - Mar 2":{"reg":421.61,"ot":13.0,"pct":0.030834},"Mar 3 - Mar 17":{"reg":96.25,"ot":12.0,"pct":0.124675},"Mar 18 - Mar 26":{"reg":52.5,"ot":5.0,"pct":0.095238},"Mar 27 - Apr 19":{"reg":109.75,"ot":22.0,"pct":0.200456}},"RHBOHOL DOS":{"Dec 8 - Jan 4":{"reg":533.02,"ot":85.75,"pct":0.160876},"Jan 5 - Jan 18":{"reg":371.76,"ot":55.23,"pct":0.148564},"Jan 19 - Feb 2":{"reg":375.42,"ot":40.82,"pct":0.108732},"Feb 3 - Feb 17":{"reg":378.95,"ot":51.92,"pct":0.13701},"Feb 18 - Mar 2":{"reg":140.0,"ot":64.75,"pct":0.4625},"Mar 3 - Mar 17":{"reg":410.62,"ot":60.3,"pct":0.146851},"Mar 18 - Mar 26":{"reg":219.13,"ot":42.5,"pct":0.193949},"Mar 27 - Apr 19":{"reg":484.9,"ot":18.83,"pct":0.038833}},"RO":{"Dec 8 - Jan 4":{"reg":231.0,"ot":167.24,"pct":0.723983},"Jan 5 - Jan 18":{"reg":192.0,"ot":17.92,"pct":0.093333},"Jan 19 - Feb 2":{"reg":198.19,"ot":23.82,"pct":0.120188},"Feb 3 - Feb 17":{"reg":96.0,"ot":11.0,"pct":0.114583},"Feb 18 - Mar 2":{"reg":688.91,"ot":11.0,"pct":0.015967},"Mar 3 - Mar 17":{"reg":104.75,"ot":11.0,"pct":0.105012},"Mar 18 - Mar 26":{"reg":56.75,"ot":2.5,"pct":0.044053},"Mar 27 - Apr 19":{"reg":122.0,"ot":22.17,"pct":0.181721}},"ROMA":{"Dec 8 - Jan 4":{"reg":958.18,"ot":72.67,"pct":0.075842},"Jan 5 - Jan 18":{"reg":653.47,"ot":42.75,"pct":0.06542},"Jan 19 - Feb 2":{"reg":104.75,"ot":12.0,"pct":0.114558},"Feb 3 - Feb 17":{"reg":671.5,"ot":68.5,"pct":0.10201},"Feb 18 - Mar 2":{"reg":1170.68,"ot":72.75,"pct":0.062143},"Mar 3 - Mar 17":{"reg":523.4,"ot":138.25,"pct":0.264138},"Mar 18 - Mar 26":{"reg":283.55,"ot":115.5,"pct":0.407336},"Mar 27 - Apr 19":{"reg":608.1,"ot":114.0,"pct":0.187469}},"ROPA 2":{"Dec 8 - Jan 4":{"reg":1054.88,"ot":131.72,"pct":0.124867},"Jan 5 - Jan 18":{"reg":730.25,"ot":71.0,"pct":0.097227},"Jan 19 - Feb 2":{"reg":382.63,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":723.67,"ot":92.45,"pct":0.127752},"Feb 18 - Mar 2":{"reg":257.86,"ot":69.54,"pct":0.269681},"Mar 3 - Mar 17":{"reg":506.83,"ot":77.5,"pct":0.152911},"Mar 18 - Mar 26":{"reg":383.62,"ot":69.22,"pct":0.180439},"Mar 27 - Apr 19":{"reg":835.64,"ot":42.25,"pct":0.05056}},"RP BOHOL":{"Dec 8 - Jan 4":{"reg":671.24,"ot":97.47,"pct":0.145209},"Jan 5 - Jan 18":{"reg":542.45,"ot":49.67,"pct":0.091566},"Jan 19 - Feb 2":{"reg":717.97,"ot":140.25,"pct":0.195342},"Feb 3 - Feb 17":{"reg":541.58,"ot":76.84,"pct":0.141881},"Feb 18 - Mar 2":{"reg":205.66,"ot":193.59,"pct":0.941311},"Mar 3 - Mar 17":{"reg":600.26,"ot":111.01,"pct":0.184937},"Mar 18 - Mar 26":{"reg":322.53,"ot":86.53,"pct":0.268285},"Mar 27 - Apr 19":{"reg":698.08,"ot":88.85,"pct":0.127278}},"SCM":{"Dec 8 - Jan 4":{"reg":2117.27,"ot":12.47,"pct":0.00589},"Jan 5 - Jan 18":{"reg":1540.92,"ot":14.1,"pct":0.00915},"Jan 19 - Feb 2":{"reg":103.5,"ot":12.0,"pct":0.115942},"Feb 3 - Feb 17":{"reg":1562.49,"ot":112.44,"pct":0.071962},"Feb 18 - Mar 2":{"reg":688.91,"ot":38.7,"pct":0.056176},"Mar 3 - Mar 17":{"reg":1699.98,"ot":19.6,"pct":0.01153},"Mar 18 - Mar 26":{"reg":932.41,"ot":6.92,"pct":0.007422},"Mar 27 - Apr 19":{"reg":1785.29,"ot":19.5,"pct":0.010923}},"SI":{"Dec 8 - Jan 4":{"reg":575.38,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":424.28,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":384.22,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":420.56,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":556.47,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":462.23,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":254.89,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":549.05,"ot":0.0,"pct":0.0}},"SKILLS COOP":{"Dec 8 - Jan 4":{"reg":403.07,"ot":10.44,"pct":0.025901},"Jan 5 - Jan 18":{"reg":248.32,"ot":21.32,"pct":0.085857},"Jan 19 - Feb 2":{"reg":96.25,"ot":7.31,"pct":0.075948},"Feb 3 - Feb 17":{"reg":260.32,"ot":29.38,"pct":0.112861},"Feb 18 - Mar 2":{"reg":421.61,"ot":25.6,"pct":0.06072},"Mar 3 - Mar 17":{"reg":287.19,"ot":32.87,"pct":0.114454},"Mar 18 - Mar 26":{"reg":157.1,"ot":28.55,"pct":0.181731},"Mar 27 - Apr 19":{"reg":334.79,"ot":31.84,"pct":0.095104}},"SM":{"Dec 8 - Jan 4":{"reg":545.89,"ot":38.19,"pct":0.069959},"Jan 5 - Jan 18":{"reg":348.83,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":596.06,"ot":78.49,"pct":0.131681},"Feb 3 - Feb 17":{"reg":347.37,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":87.25,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":288.45,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":210.0,"ot":7.75,"pct":0.036905},"Mar 27 - Apr 19":{"reg":455.0,"ot":19.37,"pct":0.042571}},"SM ASH":{"Dec 8 - Jan 4":{"reg":520.59,"ot":117.31,"pct":0.22534},"Jan 5 - Jan 18":{"reg":375.39,"ot":22.19,"pct":0.059112},"Jan 19 - Feb 2":{"reg":724.0,"ot":87.5,"pct":0.120856},"Feb 3 - Feb 17":{"reg":376.25,"ot":84.22,"pct":0.223841},"Feb 18 - Mar 2":{"reg":1231.32,"ot":68.49,"pct":0.055623},"Mar 3 - Mar 17":{"reg":307.79,"ot":61.18,"pct":0.198772},"Mar 18 - Mar 26":{"reg":167.61,"ot":55.89,"pct":0.333453},"Mar 27 - Apr 19":{"reg":359.94,"ot":63.48,"pct":0.176363}},"ST. PHOCAS":{"Dec 8 - Jan 4":{"reg":139.2,"ot":12.0,"pct":0.086207},"Jan 5 - Jan 18":{"reg":96.0,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":305.58,"ot":63.0,"pct":0.206165},"Feb 3 - Feb 17":{"reg":89.05,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":1002.67,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":103.75,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":56.5,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":126.5,"ot":0.0,"pct":0.0}},"TEM":{"Dec 8 - Jan 4":{"reg":96.0,"ot":64.57,"pct":0.672604},"Jan 5 - Jan 18":{"reg":95.88,"ot":6.25,"pct":0.065186},"Jan 19 - Feb 2":{"reg":785.88,"ot":98.84,"pct":0.12577},"Feb 3 - Feb 17":{"reg":96.0,"ot":12.45,"pct":0.129687},"Feb 18 - Mar 2":{"reg":228.67,"ot":12.0,"pct":0.052477},"Mar 3 - Mar 17":{"reg":104.75,"ot":57.94,"pct":0.553126},"Mar 18 - Mar 26":{"reg":56.75,"ot":9.69,"pct":0.170749},"Mar 27 - Apr 19":{"reg":122.0,"ot":24.24,"pct":0.198689}},"TH":{"Dec 8 - Jan 4":{"reg":351.76,"ot":189.98,"pct":0.540084},"Jan 5 - Jan 18":{"reg":261.28,"ot":92.47,"pct":0.353912},"Jan 19 - Feb 2":{"reg":96.25,"ot":21.0,"pct":0.218182},"Feb 3 - Feb 17":{"reg":167.62,"ot":33.31,"pct":0.198723},"Feb 18 - Mar 2":{"reg":164.15,"ot":40.93,"pct":0.249345},"Mar 3 - Mar 17":{"reg":208.17,"ot":59.46,"pct":0.285632},"Mar 18 - Mar 26":{"reg":111.67,"ot":35.23,"pct":0.315483},"Mar 27 - Apr 19":{"reg":366.0,"ot":18.6,"pct":0.05082}},"VIC ONG":{"Dec 8 - Jan 4":{"reg":250.19,"ot":108.8,"pct":0.434869},"Jan 5 - Jan 18":{"reg":188.92,"ot":23.93,"pct":0.126667},"Jan 19 - Feb 2":{"reg":192.5,"ot":28.25,"pct":0.146753},"Feb 3 - Feb 17":{"reg":188.48,"ot":25.61,"pct":0.135876},"Feb 18 - Mar 2":{"reg":756.58,"ot":40.1,"pct":0.053002},"Mar 3 - Mar 17":{"reg":207.53,"ot":65.13,"pct":0.313834},"Mar 18 - Mar 26":{"reg":107.95,"ot":42.19,"pct":0.390829},"Mar 27 - Apr 19":{"reg":234.2,"ot":82.15,"pct":0.350769}},"WH":{"Dec 8 - Jan 4":{"reg":113.75,"ot":16.31,"pct":0.143385},"Jan 5 - Jan 18":{"reg":78.75,"ot":10.65,"pct":0.135238},"Jan 19 - Feb 2":{"reg":104.45,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":87.5,"ot":9.75,"pct":0.111429},"Feb 18 - Mar 2":{"reg":1231.32,"ot":10.75,"pct":0.00873},"Mar 3 - Mar 17":{"reg":96.25,"ot":12.0,"pct":0.124675},"Mar 18 - Mar 26":{"reg":52.5,"ot":9.02,"pct":0.17181},"Mar 27 - Apr 19":{"reg":113.75,"ot":6.3,"pct":0.055385}},"OM-CITADINES":{"Jan 19 - Feb 2":{"reg":672.8,"ot":1.0,"pct":0.001486},"Feb 3 - Feb 17":{"reg":192.0,"ot":72.62,"pct":0.378229},"Feb 18 - Mar 2":{"reg":78.5,"ot":81.61,"pct":1.039618},"Mar 3 - Mar 17":{"reg":307.62,"ot":147.27,"pct":0.47874},"Mar 18 - Mar 26":{"reg":173.5,"ot":151.63,"pct":0.873948},"Mar 27 - Apr 19":{"reg":355.35,"ot":241.92,"pct":0.680794}},"OM-SCR":{"Jan 19 - Feb 2":{"reg":409.37,"ot":45.75,"pct":0.111757},"Feb 3 - Feb 17":{"reg":279.42,"ot":48.75,"pct":0.174469},"Feb 18 - Mar 2":{"reg":556.47,"ot":94.58,"pct":0.169964},"Mar 3 - Mar 17":{"reg":294.41,"ot":74.0,"pct":0.25135},"Mar 18 - Mar 26":{"reg":161.56,"ot":48.0,"pct":0.297103},"Mar 27 - Apr 19":{"reg":216.12,"ot":27.75,"pct":0.128401}},"SHANG MAIN B":{"Jan 19 - Feb 2":{"reg":104.75,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":285.91,"ot":32.83,"pct":0.114826},"Feb 18 - Mar 2":{"reg":78.13,"ot":66.5,"pct":0.851146},"Mar 3 - Mar 17":{"reg":304.92,"ot":68.17,"pct":0.223567},"Mar 18 - Mar 26":{"reg":396.54,"ot":88.5,"pct":0.223181},"Mar 27 - Apr 19":{"reg":832.66,"ot":114.3,"pct":0.137271}},"OM-LC":{"Feb 3 - Feb 17":{"reg":96.0,"ot":12.0,"pct":0.125},"Feb 18 - Mar 2":{"reg":1231.32,"ot":18.5,"pct":0.015025},"Mar 3 - Mar 17":{"reg":98.2,"ot":31.0,"pct":0.315682},"Mar 18 - Mar 26":{"reg":55.78,"ot":11.15,"pct":0.199892},"Mar 27 - Apr 19":{"reg":112.08,"ot":23.27,"pct":0.20762}},"OM-CP":{"Feb 18 - Mar 2":{"reg":627.44,"ot":21.15,"pct":0.033708},"Mar 3 - Mar 17":{"reg":103.77,"ot":28.0,"pct":0.269828},"Mar 18 - Mar 26":{"reg":55.4,"ot":26.55,"pct":0.479242},"Mar 27 - Apr 19":{"reg":121.75,"ot":38.0,"pct":0.312115}}}},"CSI":{"departments":{"ADMIN":{"Dec 8 - Jan 4":{"reg":522.85,"ot":120.18,"pct":0.229856},"Jan 5 - Jan 18":{"reg":428.46,"ot":61.17,"pct":0.142767},"Jan 19 - Feb 2":{"reg":468.15,"ot":45.78,"pct":0.097789},"Feb 3 - Feb 17":{"reg":429.12,"ot":38.85,"pct":0.090534},"Feb 18 - Mar 2":{"reg":387.78,"ot":36.48,"pct":0.094074},"Mar 3 - Mar 17":{"reg":462.26,"ot":28.25,"pct":0.061113},"Mar 18 - Mar 26":{"reg":260.8,"ot":29.25,"pct":0.112155},"Mar 27 - Apr 19":{"reg":562.64,"ot":59.93,"pct":0.106516}},"AG":{"Dec 8 - Jan 4":{"reg":102.0,"ot":41.75,"pct":0.409314},"Jan 5 - Jan 18":{"reg":88.25,"ot":11.08,"pct":0.125552},"Jan 19 - Feb 2":{"reg":98.25,"ot":22.66,"pct":0.230636},"Feb 3 - Feb 17":{"reg":89.75,"ot":14.25,"pct":0.158774},"Feb 18 - Mar 2":{"reg":81.58,"ot":21.17,"pct":0.2595},"Mar 3 - Mar 17":{"reg":98.08,"ot":26.83,"pct":0.273552},"Mar 18 - Mar 26":{"reg":53.25,"ot":24.17,"pct":0.453897},"Mar 27 - Apr 19":{"reg":118.5,"ot":48.58,"pct":0.409958}},"P&L":{"Dec 8 - Jan 4":{"reg":1675.9,"ot":1416.68,"pct":0.845325},"Jan 5 - Jan 18":{"reg":1303.7,"ot":754.53,"pct":0.57876},"Jan 19 - Feb 2":{"reg":1417.07,"ot":952.08,"pct":0.671865},"Feb 3 - Feb 17":{"reg":1295.76,"ot":1014.82,"pct":0.783185},"Feb 18 - Mar 2":{"reg":1185.68,"ot":1085.64,"pct":0.915626},"Mar 3 - Mar 17":{"reg":1475.87,"ot":1166.87,"pct":0.790632},"Mar 18 - Mar 26":{"reg":816.61,"ot":846.48,"pct":1.036578},"Mar 27 - Apr 19":{"reg":1713.65,"ot":1632.09,"pct":0.952406}},"PRECAST":{"Dec 8 - Jan 4":{"reg":451.21,"ot":514.01,"pct":1.139181},"Jan 5 - Jan 18":{"reg":439.85,"ot":379.73,"pct":0.863317},"Jan 19 - Feb 2":{"reg":476.77,"ot":248.96,"pct":0.522181},"Feb 3 - Feb 17":{"reg":438.54,"ot":342.64,"pct":0.78132},"Feb 18 - Mar 2":{"reg":401.87,"ot":298.52,"pct":0.742827},"Mar 3 - Mar 17":{"reg":471.55,"ot":561.65,"pct":1.191072},"Mar 18 - Mar 26":{"reg":262.73,"ot":321.67,"pct":1.224337},"Mar 27 - Apr 19":{"reg":587.16,"ot":618.64,"pct":1.053614}},"QC":{"Dec 8 - Jan 4":{"reg":626.15,"ot":249.49,"pct":0.398451},"Jan 5 - Jan 18":{"reg":537.57,"ot":63.96,"pct":0.11898},"Jan 19 - Feb 2":{"reg":585.12,"ot":80.21,"pct":0.137083},"Feb 3 - Feb 17":{"reg":535.77,"ot":118.55,"pct":0.22127},"Feb 18 - Mar 2":{"reg":488.56,"ot":105.51,"pct":0.215961},"Mar 3 - Mar 17":{"reg":583.84,"ot":116.75,"pct":0.199969},"Mar 18 - Mar 26":{"reg":316.65,"ot":133.83,"pct":0.422643},"Mar 27 - Apr 19":{"reg":702.61,"ot":189.83,"pct":0.270178}},"R&M":{"Dec 8 - Jan 4":{"reg":656.0,"ot":261.24,"pct":0.398232},"Jan 5 - Jan 18":{"reg":488.0,"ot":129.67,"pct":0.265717},"Jan 19 - Feb 2":{"reg":489.49,"ot":164.44,"pct":0.335941},"Feb 3 - Feb 17":{"reg":439.06,"ot":110.4,"pct":0.251446},"Feb 18 - Mar 2":{"reg":407.85,"ot":160.17,"pct":0.392718},"Mar 3 - Mar 17":{"reg":488.65,"ot":145.06,"pct":0.296859},"Mar 18 - Mar 26":{"reg":266.01,"ot":120.53,"pct":0.453103},"Mar 27 - Apr 19":{"reg":584.27,"ot":234.87,"pct":0.401989}},"S&M":{"Dec 8 - Jan 4":{"reg":828.42,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":513.03,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":554.77,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":475.56,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":437.29,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":531.57,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":281.12,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":552.67,"ot":5.84,"pct":0.010567}}},"costcenters":{"ADM":{"Dec 8 - Jan 4":{"reg":522.85,"ot":120.18,"pct":0.229856},"Jan 5 - Jan 18":{"reg":428.46,"ot":61.17,"pct":0.142767},"Jan 19 - Feb 2":{"reg":468.15,"ot":45.78,"pct":0.097789},"Feb 3 - Feb 17":{"reg":429.12,"ot":38.85,"pct":0.090534},"Feb 18 - Mar 2":{"reg":387.78,"ot":36.48,"pct":0.094074},"Mar 3 - Mar 17":{"reg":462.26,"ot":28.25,"pct":0.061113},"Mar 18 - Mar 26":{"reg":260.8,"ot":29.25,"pct":0.112155},"Mar 27 - Apr 19":{"reg":562.64,"ot":59.93,"pct":0.106516}},"OPPAGGR":{"Dec 8 - Jan 4":{"reg":102.0,"ot":41.75,"pct":0.409314},"Jan 5 - Jan 18":{"reg":88.25,"ot":11.08,"pct":0.125552},"Jan 19 - Feb 2":{"reg":98.25,"ot":22.66,"pct":0.230636},"Feb 3 - Feb 17":{"reg":89.75,"ot":14.25,"pct":0.158774},"Feb 18 - Mar 2":{"reg":81.58,"ot":21.17,"pct":0.2595},"Mar 3 - Mar 17":{"reg":98.08,"ot":26.83,"pct":0.273552},"Mar 18 - Mar 26":{"reg":53.25,"ot":24.17,"pct":0.453897},"Mar 27 - Apr 19":{"reg":118.5,"ot":48.58,"pct":0.409958}},"PLD":{"Dec 8 - Jan 4":{"reg":1142.05,"ot":1014.3,"pct":0.88814},"Jan 5 - Jan 18":{"reg":864.68,"ot":525.99,"pct":0.608306},"Jan 19 - Feb 2":{"reg":932.76,"ot":710.62,"pct":0.761847},"Feb 3 - Feb 17":{"reg":858.15,"ot":657.59,"pct":0.766288},"Feb 18 - Mar 2":{"reg":779.53,"ot":741.03,"pct":0.950611},"Mar 3 - Mar 17":{"reg":993.06,"ot":840.65,"pct":0.846525},"Mar 18 - Mar 26":{"reg":553.91,"ot":644.18,"pct":1.162969},"Mar 27 - Apr 19":{"reg":1138.35,"ot":1171.91,"pct":1.029481}},"CSI-B":{"Dec 8 - Jan 4":{"reg":314.0,"ot":243.59,"pct":0.775764},"Jan 5 - Jan 18":{"reg":266.0,"ot":147.1,"pct":0.553008},"Jan 19 - Feb 2":{"reg":294.75,"ot":137.68,"pct":0.467108},"Feb 3 - Feb 17":{"reg":270.0,"ot":264.35,"pct":0.979074},"Feb 18 - Mar 2":{"reg":245.25,"ot":259.91,"pct":1.059776},"Mar 3 - Mar 17":{"reg":294.5,"ot":222.93,"pct":0.756978},"Mar 18 - Mar 26":{"reg":159.75,"ot":123.85,"pct":0.775274},"Mar 27 - Apr 19":{"reg":355.5,"ot":339.81,"pct":0.955865}},"PLD-NP":{"Dec 8 - Jan 4":{"reg":109.38,"ot":60.89,"pct":0.556683},"Jan 5 - Jan 18":{"reg":87.82,"ot":26.04,"pct":0.296516},"Jan 19 - Feb 2":{"reg":97.03,"ot":40.27,"pct":0.415026},"Feb 3 - Feb 17":{"reg":87.27,"ot":31.77,"pct":0.364043},"Feb 18 - Mar 2":{"reg":80.77,"ot":26.83,"pct":0.332178},"Mar 3 - Mar 17":{"reg":96.52,"ot":28.42,"pct":0.294447},"Mar 18 - Mar 26":{"reg":52.73,"ot":26.51,"pct":0.50275},"Mar 27 - Apr 19":{"reg":116.99,"ot":48.95,"pct":0.418412}},"PLD - SP":{"Dec 8 - Jan 4":{"reg":208.38,"ot":287.83,"pct":1.381275},"Jan 5 - Jan 18":{"reg":172.72,"ot":159.43,"pct":0.923055},"Jan 19 - Feb 2":{"reg":92.53,"ot":63.52,"pct":0.68648},"Feb 3 - Feb 17":{"reg":80.34,"ot":61.11,"pct":0.760642},"Feb 18 - Mar 2":{"reg":80.13,"ot":57.87,"pct":0.722201},"Mar 3 - Mar 17":{"reg":91.79,"ot":74.87,"pct":0.815666},"Mar 18 - Mar 26":{"reg":50.22,"ot":51.94,"pct":1.034249},"Mar 27 - Apr 19":{"reg":102.81,"ot":71.42,"pct":0.69468}},"OPPRE":{"Dec 8 - Jan 4":{"reg":383.26,"ot":294.13,"pct":0.767442},"Jan 5 - Jan 18":{"reg":352.33,"ot":275.7,"pct":0.782505},"Jan 19 - Feb 2":{"reg":476.77,"ot":248.96,"pct":0.522181},"Feb 3 - Feb 17":{"reg":438.54,"ot":342.64,"pct":0.78132},"Feb 18 - Mar 2":{"reg":401.87,"ot":298.52,"pct":0.742827},"Mar 3 - Mar 17":{"reg":471.55,"ot":561.65,"pct":1.191072},"Mar 18 - Mar 26":{"reg":262.73,"ot":321.67,"pct":1.224337},"Mar 27 - Apr 19":{"reg":587.16,"ot":618.64,"pct":1.053614}},"QC":{"Dec 8 - Jan 4":{"reg":626.15,"ot":249.49,"pct":0.398451},"Jan 5 - Jan 18":{"reg":537.57,"ot":63.96,"pct":0.11898},"Jan 19 - Feb 2":{"reg":585.12,"ot":80.21,"pct":0.137083},"Feb 3 - Feb 17":{"reg":535.77,"ot":118.55,"pct":0.22127},"Feb 18 - Mar 2":{"reg":488.56,"ot":105.51,"pct":0.215961},"Mar 3 - Mar 17":{"reg":583.84,"ot":116.75,"pct":0.199969},"Mar 18 - Mar 26":{"reg":316.65,"ot":133.83,"pct":0.422643},"Mar 27 - Apr 19":{"reg":702.61,"ot":189.83,"pct":0.270178}},"RMD":{"Dec 8 - Jan 4":{"reg":407.8,"ot":20.44,"pct":0.050123},"Jan 5 - Jan 18":{"reg":309.57,"ot":10.57,"pct":0.034144},"Jan 19 - Feb 2":{"reg":294.55,"ot":23.44,"pct":0.079579},"Feb 3 - Feb 17":{"reg":261.33,"ot":23.15,"pct":0.088585},"Feb 18 - Mar 2":{"reg":245.25,"ot":31.92,"pct":0.130153},"Mar 3 - Mar 17":{"reg":294.65,"ot":21.78,"pct":0.073918},"Mar 18 - Mar 26":{"reg":159.75,"ot":10.38,"pct":0.064977},"Mar 27 - Apr 19":{"reg":352.83,"ot":40.16,"pct":0.113823}},"RMDS":{"Dec 8 - Jan 4":{"reg":248.2,"ot":240.8,"pct":0.970185},"Jan 5 - Jan 18":{"reg":178.43,"ot":119.1,"pct":0.667489},"Jan 19 - Feb 2":{"reg":194.94,"ot":141.0,"pct":0.723299},"Feb 3 - Feb 17":{"reg":177.73,"ot":87.25,"pct":0.490913},"Feb 18 - Mar 2":{"reg":162.6,"ot":128.25,"pct":0.788745},"Mar 3 - Mar 17":{"reg":194.0,"ot":123.28,"pct":0.635464},"Mar 18 - Mar 26":{"reg":106.26,"ot":110.15,"pct":1.036608},"Mar 27 - Apr 19":{"reg":231.44,"ot":194.71,"pct":0.841298}},"SLMKTG":{"Dec 8 - Jan 4":{"reg":828.42,"ot":0.0,"pct":0.0},"Jan 5 - Jan 18":{"reg":513.03,"ot":0.0,"pct":0.0},"Jan 19 - Feb 2":{"reg":554.77,"ot":0.0,"pct":0.0},"Feb 3 - Feb 17":{"reg":457.56,"ot":0.0,"pct":0.0},"Feb 18 - Mar 2":{"reg":437.29,"ot":0.0,"pct":0.0},"Mar 3 - Mar 17":{"reg":531.57,"ot":0.0,"pct":0.0},"Mar 18 - Mar 26":{"reg":281.12,"ot":0.0,"pct":0.0},"Mar 27 - Apr 19":{"reg":552.67,"ot":5.84,"pct":0.010567}}}}};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const cp=(r,o)=>{const rv=parseFloat(r)||0,ov=parseFloat(o)||0;return(rv+ov)>0?ov/(rv+ov):0;};
+const fp=n=>(n*100).toFixed(1)+"%";
+const fn=n=>(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
+const ta=iso=>{const s=Math.floor((Date.now()-new Date(iso))/1000);if(s<60)return s+"s ago";if(s<3600)return Math.floor(s/60)+"m ago";if(s<86400)return Math.floor(s/3600)+"h ago";return new Date(iso).toLocaleDateString();};
+const pc=p=>p>0.3?"#ef4444":p>0.1?"#f59e0b":p>0?"#10b981":"#1e3050";
+const G=id=>document.getElementById(id);
+
+function toast(msg,type="success"){const c=type==="success"?"#10b981":type==="info"?"#3b82f6":"#ef4444";const bg=type==="success"?"#0d2a1e":type==="info"?"#0d1e2a":"#2a0d0d";const d=document.createElement("div");d.className="toast";d.style.cssText=`background:${bg};border:1px solid ${c};color:${c}`;d.textContent=(type==="success"?"✓ ":type==="info"?"↻ ":"✗ ")+msg;G("tc").appendChild(d);setTimeout(()=>d.remove(),3500);}
+
+function r2m(rows){const m={};rows.forEach(r=>{m[r.key]={...r,data:typeof r.data==="string"?JSON.parse(r.data):r.data};});return m;}
+function bld(subs){const live=JSON.parse(JSON.stringify(SEED));Object.values(subs).forEach(s=>{const{company,period,type,data}=s;if(!live[company])return;const b=type==="departments"?live[company].departments:live[company].costcenters;Object.entries(data||{}).forEach(([n,r])=>{const reg=parseFloat(r.reg)||0,ot=parseFloat(r.ot)||0;if(!reg&&!ot)return;if(!b[n])b[n]={};b[n][period]={reg,ot};});});return live;}
+function gct(live,co){const d=live[co]?.departments||{};return PDS.map((p,i)=>{let reg=0,ot=0;Object.values(d).forEach(x=>{reg+=x[p]?.reg||0;ot+=x[p]?.ot||0;});return{period:SHP[i],fullPeriod:p,reg,ot,pct:cp(reg,ot)};});}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let S={user:null,subs:{},live:JSON.parse(JSON.stringify(SEED)),page:"dashboard",dco:"PSC",dsv:"overview",eco:"PSC",eper:PDS[0],etab:"departments",erows:{},hfil:"ALL",lastSync:null,poll:null,charts:{},periods:null,editingPeriodIdx:null,
+  uploadData:null,uploadParsed:null,uploadCo:"PSC",uploadPer:PDS[0],uploadTab:"departments",entryMode:"manual"};
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+Chart.defaults.color="#2a4060";Chart.defaults.borderColor="#0d1622";
+function dc(id){if(S.charts[id]){S.charts[id].destroy();delete S.charts[id];}}
+function mkLine(id,labels,datasets,yfmt){dc(id);const ctx=G(id);if(!ctx)return;S.charts[id]=new Chart(ctx,{type:"line",data:{labels,datasets:datasets.map(d=>({...d,tension:0.3,pointRadius:4,pointHoverRadius:6}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#4b6080",font:{size:11}}},tooltip:{backgroundColor:"#0a1220",borderColor:"#1e3050",borderWidth:1,titleColor:"#4b6080",bodyColor:"#c8d8e8"}},scales:{x:{ticks:{color:"#2a4060",font:{size:10}},grid:{color:"#0d1622"}},y:{ticks:{color:"#2a4060",font:{size:10},callback:yfmt},grid:{color:"#0d1622"}}}}});}
+function mkBar(id,labels,datasets){dc(id);const ctx=G(id);if(!ctx)return;S.charts[id]=new Chart(ctx,{type:"bar",data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#4b6080",font:{size:11}}},tooltip:{backgroundColor:"#0a1220",borderColor:"#1e3050",borderWidth:1,titleColor:"#4b6080",bodyColor:"#c8d8e8"}},scales:{x:{stacked:true,ticks:{color:"#2a4060",font:{size:10}},grid:{color:"#0d1622"}},y:{stacked:true,ticks:{color:"#2a4060",font:{size:10}},grid:{color:"#0d1622"}}}}});}
+
+// ── DB STATUS ─────────────────────────────────────────────────────────────────
+function setDB(st){const dot=G("dbdot"),lbl=G("dblbl"),bd=G("bdot"),bl=G("blbl"),bt=G("btxt");if(st==="ok"){dot.style.background="#10b981";dot.style.boxShadow="0 0 4px #10b981";dot.classList.remove("blink");lbl.textContent="LIVE · SUPABASE";lbl.style.color="#1a5035";bd.style.background="#10b981";bl.textContent="LIVE";bl.style.color="#1a4030";const sc=Object.keys(S.subs).length;bt.textContent=sc+" submission"+(sc!==1?"s":"")+" in database · Auto-refresh 8s"+(S.lastSync?" · "+ta(S.lastSync):"");}else if(st==="error"){dot.style.background="#ef4444";dot.style.boxShadow="0 0 4px #ef4444";dot.classList.remove("blink");lbl.textContent="DB ERROR";lbl.style.color="#5a2020";bd.style.background="#ef4444";}else{dot.style.background="#f59e0b";dot.classList.add("blink");lbl.textContent="CONNECTING…";}}
+
+async function fetch2(silent){if(!silent)G("nspin").classList.remove("hidden");try{const rows=await DB.getAll();S.subs=r2m(rows);S.live=bld(S.subs);S.lastSync=new Date().toISOString();setDB("ok");if(S.page==="dashboard")rdash();if(S.page==="history")rhist();if(S.page==="admin")radmin();ubadge();}catch(e){setDB("error");if(!silent)toast("DB error: "+e.message,"error");}finally{if(!silent)G("nspin").classList.add("hidden");}}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+Object.entries(USERS).forEach(([u,v])=>{const d=document.createElement("div");d.style.cssText="display:flex;justify-content:space-between;font-size:11px;cursor:pointer;padding:3px 0";d.innerHTML=`<span style="font-family:monospace;color:#2a4060">${u}</span><span style="color:${CLC[v.company]};font-weight:700">${v.company}</span>`;d.onclick=()=>{G("iu").value=u;G("ip").value=v.password;};G("clist").appendChild(d);});
+function dologin(){const u=G("iu").value.trim().toLowerCase(),p=G("ip").value,usr=USERS[u];if(usr&&usr.password===p){S.user={username:u,...usr};G("login-screen").classList.add("hidden");G("app").classList.remove("hidden");initApp();}else{G("lerr").textContent="Invalid username or password.";G("lerr").classList.remove("hidden");}}
+G("lbtn").onclick=dologin;G("ip").onkeydown=e=>e.key==="Enter"&&dologin();G("iu").onkeydown=e=>e.key==="Enter"&&dologin();
+
+// ── APP INIT ──────────────────────────────────────────────────────────────────
+function initApp(){
+  const u=S.user,clr=CLC[u.company];
+  G("uav").textContent=u.company==="ALL"?"A":u.company[0];
+  G("uav").style.cssText+=`;background:${CDM[u.company]};border:1px solid ${clr}44;color:${clr}`;
+  const tabs=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"entry",icon:"✏",label:"Enter Data"},{id:"history",icon:"📋",label:"History"},{id:"periods",icon:"📅",label:"Periods"}];
+  if(u.company==="ALL")tabs.push({id:"admin",icon:"⚙",label:"Admin"});
+  const nav=G("ntabs");
+  tabs.forEach(t=>{const b=document.createElement("button");b.className="nav-btn"+(S.page===t.id?" active":"");b.dataset.page=t.id;b.innerHTML=t.icon+" "+t.label;if(t.id===S.page)b.style.borderBottomColor=clr;b.onclick=()=>goPg(t.id);nav.appendChild(b);});
+  const vcos=u.company==="ALL"?["ABC","PSC","CSI"]:[u.company];
+  S.dco=vcos[0];S.eco=vcos[0];S.uploadCo=vcos[0];
+  if(u.company!=="ALL"){S.dco=u.company;S.eco=u.company;S.uploadCo=u.company;}
+  const pw=G("dcpills");
+  vcos.forEach(co=>{const b=document.createElement("button");b.className="cpill";b.textContent=co;b.dataset.co=co;if(co===S.dco){b.style.borderColor=CLC[co];b.style.background=CLC[co]+"22";b.style.color=CLC[co];}b.onclick=()=>{S.dco=co;document.querySelectorAll("[data-co]").forEach(p=>{const c=p.dataset.co;p.style.borderColor=c===co?CLC[c]:"#131e30";p.style.background=c===co?CLC[c]+"22":"transparent";p.style.color=c===co?CLC[c]:"#2a4060";});rdash();};pw.insertBefore(b,pw.firstChild);});
+  document.querySelectorAll(".sbtn").forEach(b=>{b.onclick=()=>{S.dsv=b.dataset.sv;document.querySelectorAll(".sbtn").forEach(x=>{const a=x.dataset.sv===S.dsv;x.style.background=a?CLC[S.dco]+"22":"transparent";x.style.color=a?CLC[S.dco]:"#2a4060";});rdash();};});
+  initEntry(vcos);initUpload(vcos);
+  const hf=G("hfilt");
+  if(u.company==="ALL"){["ALL","ABC","PSC","CSI"].forEach(co=>{const b=document.createElement("button");b.className="cpill";b.textContent=co;b.dataset.fco=co;if(co==="ALL"){b.style.borderColor="#3b82f6";b.style.background="#3b82f622";b.style.color="#3b82f6";}b.onclick=()=>{S.hfil=co;document.querySelectorAll("[data-fco]").forEach(p=>{const c=p.dataset.fco,ac=c===co;p.style.borderColor=ac?(CLC[c]||"#3b82f6"):"#131e30";p.style.background=ac?(CLC[c]||"#3b82f6")+"22":"transparent";p.style.color=ac?(CLC[c]||"#3b82f6"):"#2a4060";});rhist();};hf.appendChild(b);});}
+  G("obtn").onclick=logout;G("rbtn").onclick=()=>fetch2(false);
+  loadPeriods().then(()=>{ refreshAllPeriodSelects(); if(S.page==="periods")rperiods(); });
+  fetch2(false);S.poll=setInterval(()=>fetch2(true),8000);
+}
+
+function goPg(id){S.page=id;document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));G("pg-"+id).classList.add("active");const clr=CLC[S.user.company];document.querySelectorAll(".nav-btn").forEach(b=>{const a=b.dataset.page===id;b.classList.toggle("active",a);b.style.borderBottomColor=a?clr:"transparent";b.style.color=a?"#e8edf5":"#2a4060";});G("sbanner").style.display=id==="dashboard"?"flex":"none";if(id==="dashboard")rdash();if(id==="history")rhist();if(id==="admin")radmin();if(id==="entry")rentryv();if(id==="periods")rperiods();}
+
+function logout(){clearInterval(S.poll);Object.values(S.charts).forEach(c=>c.destroy());S={...S,user:null,subs:{},page:"dashboard",charts:{},uploadData:null,uploadParsed:null};G("app").classList.add("hidden");G("login-screen").classList.remove("hidden");G("ntabs").innerHTML="";G("dcpills").innerHTML='<span id="synclbl" style="font-size:10px;color:#1e3050"></span>';G("hfilt").innerHTML="";G("iu").value="";G("ip").value="";G("lerr").classList.add("hidden");}
+function ubadge(){const sc=Object.keys(S.subs).length;document.querySelectorAll(".nav-btn").forEach(b=>{if(b.dataset.page==="history"){b.innerHTML="📋 History"+(sc>0?` <span style="background:${CLC[S.user?.company]}33;color:${CLC[S.user?.company]};border-radius:12px;padding:1px 6px;font-size:10px;font-weight:800">${sc}</span>`:"")}});}
+
+// ── MODE TOGGLE ───────────────────────────────────────────────────────────────
+function setMode(m){
+  S.entryMode=m;
+  const clr=CLC[S.eco]||"#3b82f6";
+  G("mode-manual").style.background=m==="manual"?clr+"22":"transparent";
+  G("mode-manual").style.color=m==="manual"?clr:"#2a4060";
+  G("mode-upload").style.background=m==="upload"?clr+"22":"transparent";
+  G("mode-upload").style.color=m==="upload"?clr:"#2a4060";
+  G("manual-mode").classList.toggle("hidden",m!=="manual");
+  G("upload-mode").classList.toggle("hidden",m!=="upload");
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function rdash(){
+  const co=S.dco,live=S.live,sv=S.dsv,clr=CLC[co];
+  const data=gct(live,co),avg=data.reduce((s,d)=>s+d.pct,0)/data.length,totOT=data.reduce((s,d)=>s+d.ot,0),peak=data.reduce((a,b)=>a.pct>b.pct?a:b),latest=data[data.length-1];
+  const depts=live[co]?.departments||{};
+  document.querySelectorAll(".sbtn").forEach(b=>{const a=b.dataset.sv===sv;b.style.background=a?clr+"22":"transparent";b.style.color=a?clr:"#2a4060";});
+  const kr=G("kpis");kr.innerHTML="";
+  [{label:"Latest OT %",value:fp(latest.pct),sub:latest.fullPeriod,hi:latest.pct>0.1},{label:"Avg OT Rate",value:fp(avg),sub:"8-period avg",hi:avg>0.1},{label:"Total OT Hrs",value:fn(totOT),sub:"YTD"},{label:"Peak Period",value:peak.period,sub:fp(peak.pct)},{label:"Depts",value:Object.keys(depts).length,sub:co+" units"}].forEach(k=>{const d=document.createElement("div");d.className="kpi";d.innerHTML=`<div class="kpi-lbl">${k.label}</div><div class="kpi-val" style="${k.hi?"color:"+clr:""}">${k.value}</div>${k.sub?`<div class="kpi-sub">${k.sub}</div>`:""}`; if(k.hi)d.style.borderColor=clr+"55";kr.appendChild(d);});
+  const cnt=G("dcontent");cnt.innerHTML="";
+  if(sv==="overview"){
+    cnt.innerHTML=`<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:3px">OT Rate Trend — ${co}</div><div style="font-size:11px;color:#2a4060;margin-bottom:10px">OT % of total hours</div><div style="height:220px;position:relative"><canvas id="cht1"></canvas></div></div><div class="g2"><div class="card"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:10px">Regular vs OT Hours</div><div style="height:190px;position:relative"><canvas id="cht2"></canvas></div></div><div class="card"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:12px">Dept OT Rankings</div><div id="dbars"></div></div></div>`;
+    const drows=Object.entries(depts).map(([n,pd])=>({n,avg:PDS.reduce((s,p)=>s+cp(pd[p]?.reg||0,pd[p]?.ot||0),0)/PDS.length})).sort((a,b)=>b.avg-a.avg);
+    const bw=G("dbars");if(bw){drows.forEach(d=>{const bc=d.avg>0.3?"#ef4444":d.avg>0.1?"#f59e0b":clr;const div=document.createElement("div");div.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:8px";div.innerHTML=`<div style="width:72px;font-size:11px;color:#6a809a;font-weight:600;flex-shrink:0">${d.n}</div><div style="flex:1;background:#0d1622;border-radius:3px;height:8px;overflow:hidden"><div style="width:${Math.min(d.avg*100,100)}%;height:100%;border-radius:3px;background:${bc}"></div></div><div style="width:44px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:${bc}">${fp(d.avg)}</div>`;bw.appendChild(div);});}
+    setTimeout(()=>{mkLine("cht1",SHP,[{label:"OT %",data:data.map(d=>+(d.pct*100).toFixed(2)),borderColor:clr,backgroundColor:clr+"22",fill:true}],v=>v+"%");mkBar("cht2",SHP,[{label:"Regular",data:data.map(d=>Math.round(d.reg)),backgroundColor:"#1a2640",stack:"a"},{label:"Overtime",data:data.map(d=>Math.round(d.ot)),backgroundColor:clr,stack:"a",borderRadius:{topLeft:4,topRight:4}}]);},50);
+  }
+  if(sv==="departments"){
+    const drows=Object.entries(depts).map(([n,pd])=>({n,avg:PDS.reduce((s,p)=>s+cp(pd[p]?.reg||0,pd[p]?.ot||0),0)/PDS.length})).sort((a,b)=>b.avg-a.avg);
+    const thc=SHP.map(p=>`<th style="text-align:center;font-size:10px">${p}</th>`).join("");
+    const trs=drows.map(({n,avg:a})=>{const pd=depts[n]||{};const cells=getActivePDS().map(p=>{const v=cp(pd[p]?.reg||0,pd[p]?.ot||0);return`<td style="text-align:center;font-family:monospace;font-size:11px;color:${pc(v)}">${v>0?fp(v):"—"}</td>`;}).join("");return`<tr><td style="font-weight:700;color:#8aa0b8;font-size:12px">${n}</td>${cells}<td style="text-align:center;font-family:monospace;font-weight:700;color:${pc(a)};font-size:11px">${fp(a)}</td></tr>`;}).join("");
+    cnt.innerHTML=`<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:10px">Dept OT Trends — ${co}</div><div style="height:260px;position:relative"><canvas id="cht3"></canvas></div></div><div class="card" style="overflow-x:auto"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:12px">Period-by-Period Table</div><table><thead><tr><th style="text-align:left">Dept</th>${thc}<th style="text-align:center">Avg</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+    const dnames=drows.map(d=>d.n);
+    setTimeout(()=>{mkLine("cht3",SHP,dnames.map((n,i)=>({label:n,data:PDS.map(p=>+(cp(depts[n]?.[p]?.reg||0,depts[n]?.[p]?.ot||0)*100).toFixed(2)),borderColor:DPL[i%DPL.length],backgroundColor:"transparent",pointRadius:0,borderWidth:1.8})),v=>v+"%");},50);
+  }
+  if(sv==="compare"){
+    const cmpd=PDS.map((p,i)=>{const r={period:SHP[i]};["ABC","PSC","CSI"].forEach(c=>{const ds=live[c]?.departments||{};let reg=0,ot=0;Object.values(ds).forEach(d=>{reg+=d[p]?.reg||0;ot+=d[p]?.ot||0;});r[c]=+(cp(reg,ot)*100).toFixed(2);});return r;});
+    const cards=["ABC","PSC","CSI"].map(c=>{const d=gct(live,c),tOT=d.reduce((s,x)=>s+x.ot,0),a=d.reduce((s,x)=>s+x.pct,0)/d.length,pk=d.reduce((x,y)=>x.pct>y.pct?x:y),mx=Math.max(...d.map(x=>x.pct));const mb=d.map(x=>`<div style="flex:1"><div style="height:${mx>0?(x.pct/mx*34+2)+"px":"2px"};background:${x.pct>0.3?"#ef4444":x.pct>0.1?"#f59e0b":CLC[c]};border-radius:3px 3px 0 0;opacity:.85"></div></div>`).join("");return`<div style="background:#080e1a;border:1px solid ${CLC[c]}33;border-radius:12px;padding:16px"><div style="display:flex;gap:7px;align-items:center;margin-bottom:11px"><div style="width:7px;height:7px;border-radius:50%;background:${CLC[c]}"></div><span style="font-weight:800;color:${CLC[c]};font-size:13px">${c}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px">${[["Total OT",fn(tOT)],["Avg Rate",fp(a)],["Peak",pk.period],["Peak %",fp(pk.pct)]].map(([l,v])=>`<div><div style="font-size:9px;color:#2a4060;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">${l}</div><div style="font-size:13px;font-weight:800;font-family:monospace;color:#c8d8e8">${v}</div></div>`).join("")}</div><div style="display:flex;gap:3px;align-items:flex-end;height:38px">${mb}</div></div>`;}).join("");
+    cnt.innerHTML=`<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:#c8d8e8;margin-bottom:10px">OT Rate — All Companies</div><div style="height:240px;position:relative"><canvas id="cht4"></canvas></div></div><div class="g3">${cards}</div>`;
+    setTimeout(()=>{mkLine("cht4",SHP,[{label:"ABC",data:cmpd.map(d=>d.ABC),borderColor:CLC.ABC,backgroundColor:"transparent",pointRadius:4},{label:"PSC",data:cmpd.map(d=>d.PSC),borderColor:CLC.PSC,backgroundColor:"transparent",pointRadius:4},{label:"CSI",data:cmpd.map(d=>d.CSI),borderColor:CLC.CSI,backgroundColor:"transparent",pointRadius:4}],v=>v+"%");},50);
+  }
+}
+
+// ── MANUAL ENTRY ──────────────────────────────────────────────────────────────
+function initEntry(vcos){
+  const wrap=G("ecobtns");
+  if(vcos.length>1){const lbl=document.createElement("label");lbl.className="clbl";lbl.textContent="Company";wrap.appendChild(lbl);const row=document.createElement("div");row.style.cssText="display:flex;gap:7px";vcos.forEach(co=>{const b=document.createElement("button");b.className="cpill";b.dataset.eco=co;b.textContent=co;if(co===S.eco){b.style.borderColor=CLC[co];b.style.background=CLC[co]+"22";b.style.color=CLC[co];}b.onclick=()=>{S.eco=co;document.querySelectorAll("[data-eco]").forEach(p=>{const c=p.dataset.eco,ac=c===co;p.style.borderColor=ac?CLC[c]:"#131e30";p.style.background=ac?CLC[c]+"22":"transparent";p.style.color=ac?CLC[c]:"#2a4060";});rentryv();};row.appendChild(b);});wrap.appendChild(row);}
+  const ps=G("eper");getActivePDS().forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;ps.appendChild(o);});ps.onchange=()=>{S.eper=ps.value;rentryv();};
+  G("tdept").onclick=()=>{S.etab="departments";utabs();rentryv();};
+  G("tcc").onclick=()=>{S.etab="costcenters";utabs();rentryv();};
+  G("svbtn").onclick=dosave;
+  setMode("manual");
+}
+
+function utabs(){const clr=CLC[S.eco];G("tdept").style.background=S.etab==="departments"?clr+"33":"#060c18";G("tdept").style.color=S.etab==="departments"?clr:"#2a4060";G("tcc").style.background=S.etab==="costcenters"?clr+"33":"#060c18";G("tcc").style.color=S.etab==="costcenters"?clr:"#2a4060";}
+
+function rentryv(){
+  const co=S.eco,per=S.eper,tab=S.etab,clr=CLC[co],key=co+"::"+per+"::"+tab,saved=S.subs[key];
+  const items=tab==="departments"?DEPTS[co]:CCS[co],src=tab==="departments"?S.live[co]?.departments:S.live[co]?.costcenters;
+  G("svbtn").style.background=`linear-gradient(135deg,${clr},${clr}cc)`;utabs();
+  if(saved){S.erows={...saved.data};}else{const rows={};items.forEach(n=>{const s=src?.[n]?.[per];rows[n]={reg:s?.reg!=null?String(s.reg):"",ot:s?.ot!=null?String(s.ot):""};});S.erows=rows;}
+  const si=G("esaved");if(saved){si.style.display="block";si.textContent="✓ Saved "+ta(saved.submitted_at||saved.submittedAt)+" by "+(saved.submitted_by||saved.submittedBy);}else si.style.display="none";
+  G("ethdr").innerHTML=`<span class="bdg" style="background:${clr}22;color:${clr};border:1px solid ${clr}44">${co}</span><span style="font-size:13px;font-weight:700;color:#c8d8e8">${per}</span><span style="font-size:11px;color:#1e3050">· ${tab}</span>${saved?`<span class="bdg" style="background:#10b98122;color:#10b981;border:1px solid #10b98144">✓ In Database</span>`:""}`;
+  G("ethead").innerHTML=`<tr>${["#",tab==="departments"?"Department":"Cost Center","Reg Hrs","OT Hrs","OT %","Status"].map(h=>`<th style="text-align:${h==="#"||h==="OT %"||h==="Status"?"center":"left"}">${h}</th>`).join("")}</tr>`;
+  const tb=G("etbody");tb.innerHTML="";
+  items.forEach((item,idx)=>{const r=S.erows[item]||{reg:"",ot:""};const hb=r.reg!==""&&r.ot!=="";const pv=hb?cp(r.reg,r.ot):null;const st=r.reg!==""&&r.ot!==""?"<span style='font-size:10px;color:#10b981;font-weight:700'>✓</span>":r.reg!==""||r.ot!==""?"<span style='font-size:10px;color:#f59e0b;font-weight:700'>⚠</span>":"<span style='font-size:10px;color:#1e3050'>—</span>";const tr=document.createElement("tr");tr.innerHTML=`<td style="text-align:center;font-family:monospace;font-size:11px;color:#1e3050">${String(idx+1).padStart(2,"0")}</td><td style="font-weight:700;color:#8aa0b8">${item}</td><td style="padding:3px 6px"><input class="ei" type="number" min="0" step="0.01" placeholder="0.00" value="${r.reg}" data-item="${item}" data-field="reg"></td><td style="padding:3px 6px"><input class="ei" type="number" min="0" step="0.01" placeholder="0.00" value="${r.ot}" data-item="${item}" data-field="ot"></td><td style="text-align:center;font-family:monospace;font-size:13px;font-weight:700;color:${pv!==null?pc(pv):"#1e3050"}">${pv!==null?fp(pv):"—"}</td><td style="text-align:center">${st}</td>`;tb.appendChild(tr);});
+  tb.querySelectorAll(".ei").forEach(inp=>{inp.oninput=()=>{const item=inp.dataset.item,field=inp.dataset.field;S.erows[item]={...S.erows[item],[field]:inp.value};uestats();const row=inp.closest("tr"),rv=S.erows[item],hb=rv.reg!==""&&rv.ot!=="",pv=hb?cp(rv.reg,rv.ot):null;row.cells[4].textContent=pv!==null?fp(pv):"—";row.cells[4].style.color=pv!==null?pc(pv):"#1e3050";row.cells[5].innerHTML=rv.reg!==""&&rv.ot!==""?"<span style='font-size:10px;color:#10b981;font-weight:700'>✓</span>":rv.reg!==""||rv.ot!==""?"<span style='font-size:10px;color:#f59e0b;font-weight:700'>⚠</span>":"<span style='font-size:10px;color:#1e3050'>—</span>";};});
+  uestats();
+}
+
+function uestats(){const items=S.etab==="departments"?DEPTS[S.eco]:CCS[S.eco],rows=S.erows,tR=items.reduce((s,i)=>s+(parseFloat(rows[i]?.reg)||0),0),tO=items.reduce((s,i)=>s+(parseFloat(rows[i]?.ot)||0),0),op=cp(tR,tO),fl=items.filter(i=>rows[i]?.reg||rows[i]?.ot).length;const es=G("estats");es.innerHTML="";[{l:"Rows",v:`${fl}/${items.length}`,hi:false},{l:"Reg Hrs",v:fn(tR),hi:false},{l:"OT Hrs",v:fn(tO),hi:false},{l:"OT Rate",v:fp(op),hi:op>0.1}].forEach(({l,v,hi})=>{const d=document.createElement("div");d.className="kpi";if(hi)d.style.borderColor="#f59e0b55";d.innerHTML=`<div class="kpi-lbl">${l}</div><div class="kpi-val" style="${hi?"color:#f59e0b":""}">${v}</div>`;es.appendChild(d);});}
+
+async function dosave(){const co=S.eco,per=S.eper,tab=S.etab,items=tab==="departments"?DEPTS[co]:CCS[co];if(!items.some(i=>S.erows[i]?.reg||S.erows[i]?.ot)){toast("Enter at least one row.","error");return;}const btn=G("svbtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Saving…';try{await DB.upsert({key:co+"::"+per+"::"+tab,company:co,period:per,type:tab,data:S.erows,submitted_by:S.user.username,submitted_at:new Date().toISOString(),status:"submitted"});await fetch2(true);toast(co+" · "+per+" saved!");rentryv();}catch(e){toast("Save failed: "+e.message,"error");}btn.disabled=false;btn.innerHTML="💾 Save to Database";}
+
+// ── EXCEL UPLOAD ──────────────────────────────────────────────────────────────
+function initUpload(vcos){
+  const wrap=G("ucobtns");
+  if(vcos.length>1){const lbl=document.createElement("label");lbl.className="clbl";lbl.textContent="Company";wrap.appendChild(lbl);const row=document.createElement("div");row.style.cssText="display:flex;gap:7px";vcos.forEach(co=>{const b=document.createElement("button");b.className="cpill";b.dataset.uco=co;b.textContent=co;if(co===S.uploadCo){b.style.borderColor=CLC[co];b.style.background=CLC[co]+"22";b.style.color=CLC[co];}b.onclick=()=>{S.uploadCo=co;document.querySelectorAll("[data-uco]").forEach(p=>{const c=p.dataset.uco,ac=c===co;p.style.borderColor=ac?CLC[c]:"#131e30";p.style.background=ac?CLC[c]+"22":"transparent";p.style.color=ac?CLC[c]:"#2a4060";});};row.appendChild(b);});wrap.appendChild(row);}
+  const up=G("uper");getActivePDS().forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;up.appendChild(o);});up.onchange=()=>{S.uploadPer=up.value;};
+}
+
+function handleDrop(e){e.preventDefault();G("dropzone").classList.remove("drag");const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+
+function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split(".").pop().toLowerCase();
+  if(!["xlsx","xls","csv"].includes(ext)){toast("Please upload an .xlsx, .xls, or .csv file","error");return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:"array"});
+      S.uploadData={wb,filename:file.name};
+      parseUpload(wb);
+    }catch(err){toast("Could not read file: "+err.message,"error");}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseUpload(wb){
+  const co=S.uploadCo,per=S.uploadPer||G("uper").value;
+  const allDepts=[...DEPTS[co],...CCS[co]].map(d=>d.toUpperCase());
+  const parsed={departments:{},costcenters:{}};
+  const errors=[];
+  const sheetResults=[];
+
+  wb.SheetNames.forEach(sname=>{
+    const ws=wb.Sheets[sname];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    if(!rows.length)return;
+
+    // Find header row - look for reg/ot column headers
+    let hdrRow=-1,nameCol=-1,regCol=-1,otCol=-1;
+    for(let r=0;r<Math.min(10,rows.length);r++){
+      const row=rows[r].map(c=>String(c).toUpperCase().trim());
+      const ri=row.findIndex(c=>c.includes("REG")||c.includes("REGULAR"));
+      const oi=row.findIndex(c=>c.includes("OT")||c.includes("OVERTIME"));
+      const ni=row.findIndex(c=>c.includes("DEPT")||c.includes("COST")||c.includes("NAME")||c.includes("UNIT")||c.includes("SECTION")||c==="DEPARTMENT");
+      if(ri>=0&&oi>=0){hdrRow=r;regCol=ri;otCol=oi;nameCol=ni>=0?ni:0;break;}
+    }
+
+    // If no header found, assume cols: 0=name, 1=reg, 2=ot
+    if(hdrRow===-1){
+      hdrRow=0;nameCol=0;regCol=1;otCol=2;
+    }
+
+    const sheetRows=[];
+    for(let r=hdrRow+1;r<rows.length;r++){
+      const row=rows[r];
+      const rawName=String(row[nameCol]||"").trim();
+      if(!rawName)continue;
+      const reg=parseFloat(row[regCol])||0;
+      const ot=parseFloat(row[otCol])||0;
+      if(!reg&&!ot)continue;
+
+      const nameUp=rawName.toUpperCase();
+      const isDept=DEPTS[co].some(d=>d.toUpperCase()===nameUp);
+      const isCC=CCS[co].some(d=>d.toUpperCase()===nameUp);
+
+      if(isDept){
+        const canonical=DEPTS[co].find(d=>d.toUpperCase()===nameUp);
+        parsed.departments[canonical]={reg,ot};
+        sheetRows.push({name:rawName,reg,ot,type:"dept",matched:true});
+      } else if(isCC){
+        const canonical=CCS[co].find(d=>d.toUpperCase()===nameUp);
+        parsed.costcenters[canonical]={reg,ot};
+        sheetRows.push({name:rawName,reg,ot,type:"cc",matched:true});
+      } else {
+        sheetRows.push({name:rawName,reg,ot,type:"unknown",matched:false});
+        errors.push(`Sheet "${sname}": "${rawName}" not recognized as a ${co} dept/cost center — skipped`);
+      }
+    }
+    if(sheetRows.length>0)sheetResults.push({sheet:sname,rows:sheetRows});
+  });
+
+  S.uploadParsed={parsed,errors,sheetResults,co,per};
+  showUploadPreview(S.uploadParsed);
+}
+
+function showUploadPreview({parsed,errors,sheetResults,co,per}){
+  const clr=CLC[co];
+  const dCount=Object.keys(parsed.departments).length;
+  const cCount=Object.keys(parsed.costcenters).length;
+  const total=dCount+cCount;
+
+  G("upload-preview").classList.remove("hidden");
+  G("preview-title").textContent=`Preview — ${co} · ${per}`;
+  G("preview-sub").textContent=`${total} rows matched · ${dCount} departments · ${cCount} cost centers`;
+
+  G("upload-save-btn").style.background=`linear-gradient(135deg,${clr},${clr}cc)`;
+
+  // Stats
+  const tReg=Object.values({...parsed.departments,...parsed.costcenters}).reduce((s,r)=>s+r.reg,0);
+  const tOT=Object.values({...parsed.departments,...parsed.costcenters}).reduce((s,r)=>s+r.ot,0);
+  const us=G("upload-stats");us.innerHTML="";
+  [{l:"Matched Rows",v:String(total),hi:false},{l:"Reg Hrs",v:fn(tReg),hi:false},{l:"OT Hrs",v:fn(tOT),hi:false},{l:"OT Rate",v:fp(cp(tReg,tOT)),hi:cp(tReg,tOT)>0.1}].forEach(({l,v,hi})=>{const d=document.createElement("div");d.className="kpi";if(hi)d.style.borderColor="#f59e0b55";d.innerHTML=`<div class="kpi-lbl">${l}</div><div class="kpi-val" style="${hi?"color:#f59e0b":""}">${v}</div>`;us.appendChild(d);});
+
+  // Sheet tabs
+  const tb=G("sheet-tabs");tb.innerHTML="";
+  sheetResults.forEach((s,i)=>{const t=document.createElement("div");t.className="tab-item"+(i===0?" active":"");t.textContent=s.sheet+" ("+s.rows.length+")";t.dataset.si=i;t.onclick=()=>{document.querySelectorAll(".tab-item").forEach(x=>x.classList.remove("active"));t.classList.add("active");showSheetPreview(sheetResults[i]);};tb.appendChild(t);});
+  if(sheetResults.length>0)showSheetPreview(sheetResults[0]);
+
+  // Errors
+  if(errors.length>0){G("upload-errors").classList.remove("hidden");G("error-list").innerHTML=errors.map(e=>`<div>• ${e}</div>`).join("");}
+  else G("upload-errors").classList.add("hidden");
+}
+
+function showSheetPreview(sr){
+  G("prev-head").innerHTML=`<tr><th style="text-align:left">Name</th><th style="text-align:center">Type</th><th style="text-align:right">Reg Hrs</th><th style="text-align:right">OT Hrs</th><th style="text-align:right">OT %</th><th style="text-align:center">Status</th></tr>`;
+  const tb=G("prev-body");tb.innerHTML="";
+  sr.rows.forEach(r=>{const pv=cp(r.reg,r.ot);const tr=document.createElement("tr");tr.innerHTML=`<td style="font-weight:700;color:#8aa0b8">${r.name}</td><td style="text-align:center"><span style="font-size:10px;color:${r.type==="dept"?"#3b82f6":r.type==="cc"?"#8b5cf6":"#4b6080"};font-weight:700">${r.type==="dept"?"DEPT":r.type==="cc"?"CC":"?"}</span></td><td style="text-align:right;font-family:monospace;color:#6a809a">${fn(r.reg)}</td><td style="text-align:right;font-family:monospace;color:#6a809a">${fn(r.ot)}</td><td style="text-align:right;font-family:monospace;font-weight:700;color:${r.matched?pc(pv):"#5a2020"}">${r.matched?fp(pv):"—"}</td><td style="text-align:center"><span style="font-size:10px;font-weight:700;color:${r.matched?"#10b981":"#ef4444"}">${r.matched?"✓ Matched":"✗ Skipped"}</span></td>`;tb.appendChild(tr);});
+}
+
+function clearUpload(){S.uploadData=null;S.uploadParsed=null;G("upload-preview").classList.add("hidden");G("upload-errors").classList.add("hidden");G("sheet-tabs").innerHTML="";G("prev-head").innerHTML="";G("prev-body").innerHTML="";}
+
+async function saveUpload(){
+  const p=S.uploadParsed;if(!p){toast("No data to save","error");return;}
+  const{parsed,co,per}=p;
+  const btn=G("upload-save-btn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Saving…';
+  const promises=[];
+  if(Object.keys(parsed.departments).length>0){
+    const data={};Object.entries(parsed.departments).forEach(([n,v])=>{data[n]={reg:String(v.reg),ot:String(v.ot)};});
+    promises.push(DB.upsert({key:co+"::"+per+"::departments",company:co,period:per,type:"departments",data,submitted_by:S.user.username,submitted_at:new Date().toISOString(),status:"submitted"}));
+  }
+  if(Object.keys(parsed.costcenters).length>0){
+    const data={};Object.entries(parsed.costcenters).forEach(([n,v])=>{data[n]={reg:String(v.reg),ot:String(v.ot)};});
+    promises.push(DB.upsert({key:co+"::"+per+"::costcenters",company:co,period:per,type:"costcenters",data,submitted_by:S.user.username,submitted_at:new Date().toISOString(),status:"submitted"}));
+  }
+  try{
+    await Promise.all(promises);
+    await fetch2(true);
+    toast(`Excel data saved! ${Object.keys(parsed.departments).length} depts + ${Object.keys(parsed.costcenters).length} cost centers → ${co} · ${per}`);
+    clearUpload();
+    setTimeout(()=>goPg("dashboard"),1500);
+  }catch(e){toast("Save failed: "+e.message,"error");}
+  btn.disabled=false;btn.innerHTML="💾 Save to Database";
+}
+
+// Template download
+function dlTemplate(type){
+  const co=S.uploadCo||S.eco;
+  const items=type==="departments"?DEPTS[co]:CCS[co];
+  const ws_data=[["Department/Cost Center","Regular Hrs","Overtime Hrs"],...items.map(n=>[n,"",""])];
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);
+  ws["!cols"]=[{wch:30},{wch:15},{wch:15}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,type==="departments"?"Departments":"Cost Centers");
+  XLSX.writeFile(wb,`${co}_${type}_template.xlsx`);
+  toast("Template downloaded!");
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function rhist(){const vcos=S.user.company==="ALL"?["ABC","PSC","CSI"]:[S.user.company];const entries=Object.entries(S.subs).filter(([,v])=>vcos.includes(v.company)&&(S.hfil==="ALL"||v.company===S.hfil)).sort((a,b)=>new Date(b[1].submitted_at||b[1].submittedAt)-new Date(a[1].submitted_at||a[1].submittedAt));G("hcnt").textContent=entries.length+" database entries · shared across all users";const list=G("hlist");list.innerHTML="";if(!entries.length){list.innerHTML='<div style="text-align:center;padding:50px 0;color:#1e3050;font-size:14px">No submissions yet.</div>';return;}entries.forEach(([key,e])=>{const clr=CLC[e.company],items=e.type==="departments"?DEPTS[e.company]:CCS[e.company],tOT=items.reduce((s,i)=>s+(parseFloat(e.data?.[i]?.ot)||0),0),tReg=items.reduce((s,i)=>s+(parseFloat(e.data?.[i]?.reg)||0),0),pv=cp(tReg,tOT),ts=e.submitted_at||e.submittedAt,by=e.submitted_by||e.submittedBy;const src=e.source==="excel"?`<span class="bdg" style="background:#10b98122;color:#10b981;border:1px solid #10b98144;margin-left:4px">📤 Excel</span>`:"";const dr=items.filter(i=>e.data?.[i]?.reg||e.data?.[i]?.ot).map(item=>{const r=e.data[item],p2=cp(r.reg||0,r.ot||0);return`<tr><td style="color:#8aa0b8;font-weight:600;font-size:12px">${item}</td><td style="text-align:right;font-family:monospace;color:#4b6080;font-size:11px">${parseFloat(r.reg||0).toFixed(2)}</td><td style="text-align:right;font-family:monospace;color:#4b6080;font-size:11px">${parseFloat(r.ot||0).toFixed(2)}</td><td style="text-align:right;font-family:monospace;font-weight:700;color:${pc(p2)};font-size:11px">${fp(p2)}</td></tr>`;}).join("");const row=document.createElement("div");row.className="hrow";row.innerHTML=`<div class="hhdr" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block';this.querySelector('.chv').style.transform=b.style.display==='block'?'rotate(180deg)':'none'"><div style="width:30px;height:30px;border-radius:7px;background:${CDM[e.company]};border:1px solid ${clr}44;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${clr};flex-shrink:0">${e.company}</div><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#c8d8e8;display:flex;align-items:center;gap:4px">${e.period}${src}</div><div style="font-size:11px;color:#2a4060;text-transform:capitalize">${e.type} · ${by} · ${ta(ts)}</div></div><div style="text-align:right;margin-right:6px"><div style="font-size:12px;font-weight:800;font-family:monospace;color:${pc(pv)}">${fp(pv)}</div><div style="font-size:10px;color:#2a4060">OT Rate</div></div><div style="text-align:right;margin-right:8px"><div style="font-size:12px;font-weight:700;color:#8aa0b8;font-family:monospace">${fn(tOT)}</div><div style="font-size:10px;color:#2a4060">OT Hrs</div></div><div class="chv" style="font-size:13px;color:#1e3050;transition:transform .2s;margin-left:auto">▾</div></div><div class="hbody"><table><thead><tr><th style="text-align:left">${e.type==="departments"?"Dept":"CC"}</th><th style="text-align:right">Reg</th><th style="text-align:right">OT</th><th style="text-align:right">OT%</th></tr></thead><tbody>${dr}</tbody></table><div style="margin-top:8px;display:flex;justify-content:flex-end"><button onclick="ddel('${key.replace(/'/g,"\\'")}');" style="padding:5px 12px;border-radius:6px;border:1px solid #2a1515;background:transparent;color:#5a2020;font-size:12px;cursor:pointer;font-weight:600">🗑 Delete</button></div></div>`;list.appendChild(row);});}
+async function ddel(key){if(!confirm("Delete from database?"))return;try{await DB.remove(key);await fetch2(true);toast("Deleted.");}catch(e){toast("Delete failed: "+e.message,"error");}}
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+function radmin(){const subs=S.subs,ac=G("acards");ac.innerHTML="";["ABC","PSC","CSI"].forEach(co=>{const es=Object.values(subs).filter(e=>e.company===co),tOT=es.reduce((s,e)=>s+Object.values(e.data||{}).reduce((ss,r)=>ss+(parseFloat(r.ot)||0),0),0),pds=new Set(es.map(e=>e.period)).size,sub=[...new Set(es.map(e=>e.submitted_by||e.submittedBy))].length;const d=document.createElement("div");d.style.cssText=`background:#080e1a;border:1px solid ${CLC[co]}33;border-radius:12px;padding:15px`;d.innerHTML=`<div style="display:flex;gap:7px;align-items:center;margin-bottom:11px"><div style="width:7px;height:7px;border-radius:50%;background:${CLC[co]}"></div><span style="font-weight:800;color:${CLC[co]};font-size:13px">${co}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[["Submissions",es.length],["Periods",pds],["OT Hrs",fn(tOT)],["Submitters",sub||"—"]].map(([l,v])=>`<div><div style="font-size:9px;color:#2a4060;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">${l}</div><div style="font-size:13px;font-weight:800;font-family:monospace;color:#c8d8e8">${v}</div></div>`).join("")}</div>`;ac.appendChild(d);});const ct=G("ctbl"),thc=["ABC","PSC","CSI"].map(c=>`<th style="text-align:center;color:${CLC[c]}">${c}</th>`).join("");let rows="";PDS.forEach(p=>{const cells=["ABC","PSC","CSI"].map(c=>{const n=(subs[c+"::"+p+"::departments"]?1:0)+(subs[c+"::"+p+"::costcenters"]?1:0);return`<td style="text-align:center">${n===2?`<span style="color:#10b981;font-weight:700;font-size:11px">✓ Complete</span>`:n===1?`<span style="color:#f59e0b;font-weight:700;font-size:11px">⚠ Partial</span>`:`<span style="color:#1e3050;font-size:11px">— Missing</span>`}</td>`;}).join("");rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#4b6080">${p}</td>${cells}</tr>`;});ct.innerHTML=`<thead><tr><th style="text-align:left">Period</th>${thc}</tr></thead><tbody>${rows}</tbody>`;}
+
+// ── PERIOD MANAGER ────────────────────────────────────────────────────────────
+const SEED_PERIODS = PDS.map((label,i)=>({label,short:SHP[i],start:"",end:"",active:true,seed:true}));
+const PER_KEY = "ot_periods_v1";
+
+async function loadPeriods(){
+  try{
+    const r = await window.storage?.get(PER_KEY);
+    if(r?.value) S.periods = JSON.parse(r.value);
+  }catch{}
+  if(!S.periods || !S.periods.length) S.periods = JSON.parse(JSON.stringify(SEED_PERIODS));
+  // Always ensure seed periods exist
+  SEED_PERIODS.forEach((sp,i)=>{
+    if(!S.periods.find(p=>p.label===sp.label)){
+      S.periods.splice(i,0,{...sp});
+    }
+  });
+  rebuildPeriodArrays();
+}
+
+async function savePeriods(){
+  try{ await window.storage?.set(PER_KEY, JSON.stringify(S.periods)); }catch{}
+  rebuildPeriodArrays();
+  refreshAllPeriodSelects();
+}
+
+function rebuildPeriodArrays(){
+  // Rebuild PDS and SHP from active periods
+  const active = S.periods.filter(p=>p.active);
+  window._activePDS = active.map(p=>p.label);
+  window._activeSHP = active.map(p=>p.short);
+}
+
+function getActivePDS(){ return window._activePDS || PDS; }
+function getActiveSHP(){ return window._activeSHP || SHP; }
+
+function refreshAllPeriodSelects(){
+  const pds = getActivePDS();
+  ["eper","uper"].forEach(id=>{
+    const sel = G(id); if(!sel)return;
+    const cur = sel.value;
+    sel.innerHTML = "";
+    pds.forEach(p=>{ const o=document.createElement("option");o.value=p;o.textContent=p;sel.appendChild(o); });
+    if(pds.includes(cur)) sel.value=cur;
+    else if(pds.length) sel.value=pds[0];
+  });
+}
+
+function rperiods(){
+  const clr = CLC[S.user?.company]||"#3b82f6";
+  G("add-period-btn").style.background = `linear-gradient(135deg,${clr},${clr}cc)`;
+  const list = G("period-list"); list.innerHTML="";
+  if(!S.periods.length){
+    list.innerHTML='<div style="text-align:center;padding:40px 0;color:#1e3050;font-size:14px">No periods yet.</div>';
+    return;
+  }
+  S.periods.forEach((p,i)=>{
+    const card = document.createElement("div");
+    card.className = "period-card" + (p.active?" active-p":"") + (p.seed?" seed-p":"");
+    const pctDone = p.active ? "✓ Active" : "Hidden";
+    const dateStr = (p.start&&p.end) ? `${p.start} → ${p.end}` : "No dates set";
+    card.innerHTML=`
+      <div style="width:38px;height:38px;border-radius:9px;background:${p.active?clr+"22":"#0d1622"};border:1px solid ${p.active?clr+"44":"#1e3050"};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${p.active?clr:"#2a4060"};flex-shrink:0">${String(i+1).padStart(2,"0")}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#c8d8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.label}</div>
+        <div style="font-size:11px;color:#2a4060;margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
+          <span>Short: <b style="color:#4b6080">${p.short||"—"}</b></span>
+          <span>${dateStr}</span>
+          ${p.seed?'<span style="color:#3b82f655;font-size:10px">SEED</span>':""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:10px;font-weight:700;color:${p.active?"#10b981":"#2a4060"}">${pctDone}</span>
+        <button onclick="togglePeriod(${i})" title="${p.active?"Deactivate":"Activate"}" style="width:28px;height:28px;border-radius:6px;border:1px solid ${p.active?"#10b98140":"#1e3050"};background:${p.active?"#10b98118":"transparent"};color:${p.active?"#10b981":"#2a4060"};font-size:14px;display:flex;align-items:center;justify-content:center">${p.active?"✓":"○"}</button>
+        <button onclick="editPeriod(${i})" title="Edit" style="width:28px;height:28px;border-radius:6px;border:1px solid #1e3050;background:transparent;color:#4b6080;font-size:13px;display:flex;align-items:center;justify-content:center">✏</button>
+        ${p.seed?"":"<button onclick=\"deletePeriod("+i+")\" title=\"Delete\" style=\"width:28px;height:28px;border-radius:6px;border:1px solid #2a1515;background:transparent;color:#5a2020;font-size:13px;display:flex;align-items:center;justify-content:center\">🗑</button>"}
+        ${i>0&&!p.seed?"<button onclick=\"movePeriod("+i+",-1)\" title=\"Move up\" style=\"width:28px;height:28px;border-radius:6px;border:1px solid #1e3050;background:transparent;color:#4b6080;font-size:13px;display:flex;align-items:center;justify-content:center\">↑</button>":""}
+        ${i<S.periods.length-1&&!p.seed?"<button onclick=\"movePeriod("+i+",1)\" title=\"Move down\" style=\"width:28px;height:28px;border-radius:6px;border:1px solid #1e3050;background:transparent;color:#4b6080;font-size:13px;display:flex;align-items:center;justify-content:center\">↓</button>":""}
+      </div>`;
+    list.appendChild(card);
+  });
+
+  // Summary bar
+  const active = S.periods.filter(p=>p.active).length;
+  const sum = document.createElement("div");
+  sum.style.cssText="margin-top:14px;padding:12px 16px;background:#0a1220;border:1px solid #131e30;border-radius:10px;display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:#4b6080";
+  sum.innerHTML=`<span>Total: <b style="color:#c8d8e8">${S.periods.length}</b></span><span>Active: <b style="color:#10b981">${active}</b></span><span>Hidden: <b style="color:#2a4060">${S.periods.length-active}</b></span><span style="margin-left:auto;font-size:11px;color:#1e3050">Active periods appear in the dashboard charts and data entry forms</span>`;
+  list.appendChild(sum);
+}
+
+function openAddPeriod(){
+  S.editingPeriodIdx=null;
+  G("modal-title").textContent="Add New Period";
+  G("pmod-label").value="";
+  G("pmod-start").value="";
+  G("pmod-end").value="";
+  G("pmod-short").value="";
+  G("pmod-active").checked=true;
+  G("pmod-err").classList.add("hidden");
+  G("period-modal").classList.remove("hidden");
+  setTimeout(()=>G("pmod-label").focus(),100);
+}
+
+function editPeriod(i){
+  const p=S.periods[i];
+  S.editingPeriodIdx=i;
+  G("modal-title").textContent="Edit Period";
+  G("pmod-label").value=p.label;
+  G("pmod-start").value=p.start||"";
+  G("pmod-end").value=p.end||"";
+  G("pmod-short").value=p.short||"";
+  G("pmod-active").checked=p.active;
+  G("pmod-err").classList.add("hidden");
+  G("period-modal").classList.remove("hidden");
+  setTimeout(()=>G("pmod-label").focus(),100);
+}
+
+function closePeriodModal(){ G("period-modal").classList.add("hidden"); }
+
+async function savePeriodModal(){
+  const label=G("pmod-label").value.trim();
+  const start=G("pmod-start").value;
+  const end=G("pmod-end").value;
+  const short=(G("pmod-short").value.trim()||label.slice(0,8));
+  const active=G("pmod-active").checked;
+  const err=G("pmod-err");
+
+  if(!label){ err.textContent="Period label is required."; err.classList.remove("hidden"); return; }
+  if(start&&end&&start>end){ err.textContent="Start date must be before end date."; err.classList.remove("hidden"); return; }
+
+  const idx=S.editingPeriodIdx;
+  if(idx===null){
+    // Check for duplicate label
+    if(S.periods.find(p=>p.label===label)){ err.textContent="A period with this label already exists."; err.classList.remove("hidden"); return; }
+    S.periods.push({label,short,start,end,active,seed:false});
+    toast("Period added!");
+  } else {
+    // Allow editing of seed labels? Only non-seed fields for seeds
+    const p=S.periods[idx];
+    if(!p.seed) p.label=label;
+    p.short=short; p.start=start; p.end=end; p.active=active;
+    toast("Period updated!");
+  }
+  closePeriodModal();
+  await savePeriods();
+  rperiods();
+}
+
+async function togglePeriod(i){
+  S.periods[i].active=!S.periods[i].active;
+  await savePeriods();
+  rperiods();
+  toast(S.periods[i].active?"Period activated!":"Period hidden.");
+}
+
+async function deletePeriod(i){
+  if(S.periods[i].seed){ toast("Seed periods cannot be deleted.","error"); return; }
+  if(!confirm("Delete period \""+S.periods[i].label+"\"?")) return;
+  S.periods.splice(i,1);
+  await savePeriods();
+  rperiods();
+  toast("Period deleted.");
+}
+
+async function movePeriod(i,dir){
+  const j=i+dir;
+  if(j<0||j>=S.periods.length) return;
+  [S.periods[i],S.periods[j]]=[S.periods[j],S.periods[i]];
+  await savePeriods();
+  rperiods();
+}
+
+// Close modal on overlay click
+G("period-modal").addEventListener("click",e=>{ if(e.target===G("period-modal")) closePeriodModal(); });
+
+// ── PATCH getCoTotals to use active periods ───────────────────────────────────
+const _origGct = gct;
+function gct(live,co){
+  const pds=getActivePDS(),shp=getActiveSHP();
+  const d=live[co]?.departments||{};
+  return pds.map((p,i)=>{
+    let reg=0,ot=0;
+    Object.values(d).forEach(x=>{reg+=x[p]?.reg||0;ot+=x[p]?.ot||0;});
+    return{period:shp[i]||p.slice(0,8),fullPeriod:p,reg,ot,pct:cp(reg,ot)};
+  });
+}
+
+</script>
+</body>
+</html>
